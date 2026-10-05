@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook } from '../src/respond/respond-webhook.service.js'
+import { inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -12,7 +12,7 @@ describe('Respond incoming webhook parsing', () => {
     })
     assert.deepEqual(parsed, {
       contactId: '552034219', contactName: 'Jeuz Bas', channelId: 333332,
-      messageId: '99', messageType: 'text', text: 'AI Agent Test', hasAttachments: false, isUnassigned: true,
+      messageId: '99', messageType: 'text', text: 'AI Agent Test', hasAttachments: false, hasTransferableMedia: false, isUnassigned: true,
     })
   })
 })
@@ -21,6 +21,17 @@ it('ignores the Instagram unsupported-message placeholder without treating norma
   assert.equal(isPlatformUnsupportedPlaceholder('Unsupported Message'), true)
   assert.equal(isPlatformUnsupportedPlaceholder('  unsupported message  '), true)
   assert.equal(isPlatformUnsupportedPlaceholder('I cannot understand this message'), false)
+  assert.equal(payloadContainsPlatformUnsupportedPlaceholder({ message: { content: { title: 'Unsupported Message' } } }), true)
+  assert.equal(payloadContainsPlatformUnsupportedPlaceholder({ message: { text: 'A normal message' } }), false)
+})
+
+it('only marks image and voice/audio attachments for Front Desk transfer', () => {
+  const image = parseIncomingWebhook({ message: { type: 'attachment', attachments: [{ type: 'image/jpeg' }] } })
+  const voice = parseIncomingWebhook({ message: { type: 'attachment', attachments: [{ mimeType: 'audio/ogg' }] } })
+  const contactCard = parseIncomingWebhook({ message: { type: 'attachment', attachments: [{ type: 'contact' }] } })
+  assert.equal(image.hasTransferableMedia, true)
+  assert.equal(voice.hasTransferableMedia, true)
+  assert.equal(contactCard.hasTransferableMedia, false)
 })
 
 it('infers a missing Respond.io language while preserving an existing one', () => {

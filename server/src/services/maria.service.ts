@@ -12,6 +12,7 @@ import { recognizeUSLocation } from '../location/us-city-recognition.js'
 
 const messageAnalysisSchema = z.object({
   detectedLanguage: z.enum(['en', 'es', 'pt', 'other']),
+  isUnderstandable: z.boolean(),
   customerWeightGoal: z.string().nullable(),
   customerStateCode: z.string().length(2).nullable(),
   questionTopics: z.array(z.enum([
@@ -38,6 +39,7 @@ const ANALYSIS_INSTRUCTIONS = `Extract information explicitly present in the lat
 Return US states as uppercase two-letter postal codes. Do not infer a state from a city unless unambiguous.
 A weight goal is a desired weight, pounds to lose, or a general goal such as losing weight.
 Identify every question topic. Detect the language of the latest message.
+Set isUnderstandable to false only when the latest customer text is genuinely unintelligible or meaningless. Short but actionable replies such as A, B, first, second, yes, no, a time, a date, a phone number, a person's name, or a greeting are understandable.
 Capture scheduling preferences, but never interpret a vague answer as a confirmed booking.`
 
 export function isGreetingOnly(message: string) {

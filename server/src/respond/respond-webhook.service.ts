@@ -1,4 +1,4 @@
-import { conversationService } from '../services/conversation.service.js'
+import { conversationService, CustomerMessageNotUnderstoodError } from '../services/conversation.service.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
 import { isRespondChannelEnabled } from '../admin/respond-channel.service.js'
 import { getContactAutomation, mariaMayRespond, markMariaGreetingSent, resetGenerationIsCurrent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
@@ -11,6 +11,13 @@ function object(value: unknown): Json | null { return value && typeof value === 
 function first(...values: unknown[]) { return values.find((value) => value !== undefined && value !== null) }
 function numeric(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null }
 
+function stringLeaves(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.flatMap(stringLeaves)
+  const record = object(value)
+  return record ? Object.values(record).flatMap(stringLeaves) : []
+}
+
 export function parseIncomingWebhook(payload: unknown) {
   const root = object(payload) ?? {}
   const data = object(root.data) ?? root
@@ -18,6 +25,11 @@ export function parseIncomingWebhook(payload: unknown) {
   const message = object(first(data.message, root.message)) ?? {}
   const channel = object(first(data.channel, root.channel, message.channel)) ?? {}
   const content = object(message.content)
+  const attachments = Array.isArray(message.attachments) ? message.attachments : []
+  const mediaDescriptors = [message.type, content?.type, ...attachments.flatMap(stringLeaves)]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase()
   const assignee = first(contact.assignee, data.assignee, root.assignee)
   const assigneeObject = object(assignee)
   return {
@@ -27,19 +39,23 @@ export function parseIncomingWebhook(payload: unknown) {
     messageId: String(first(message.id, message.messageId, data.messageId, root.messageId, '')),
     messageType: String(first(message.type, content?.type, data.messageType, root.messageType, '')).toLowerCase(),
     text: String(first(message.text, content?.text, object(message.message)?.text, data.text, root.text, typeof message.content === 'string' ? message.content : undefined, '')),
-    hasAttachments: Array.isArray(message.attachments) && message.attachments.length > 0,
+    hasAttachments: attachments.length > 0,
+    hasTransferableMedia: /(?:^|[\s/_.-])(?:image|photo|audio|voice)(?:$|[\s/_.-])/.test(mediaDescriptors),
     isUnassigned: assignee === null || assignee === undefined || assignee === '' || assigneeObject?.id === null,
   }
 }
 
-function unsupported(type: string, text: string, hasAttachments: boolean) {
-  if (hasAttachments) return true
-  if (['image', 'audio', 'voice', 'video', 'file', 'attachment'].some((value) => type.includes(value))) return true
-  return !text.trim()
+function unsupported(type: string, hasTransferableMedia: boolean) {
+  if (hasTransferableMedia) return true
+  return ['image', 'audio', 'voice'].some((value) => type.includes(value))
 }
 
 export function isPlatformUnsupportedPlaceholder(text: string) {
   return /^\s*unsupported message\s*$/i.test(text)
+}
+
+export function payloadContainsPlatformUnsupportedPlaceholder(payload: unknown) {
+  return stringLeaves(payload).some(isPlatformUnsupportedPlaceholder)
 }
 
 export function inferredLanguage(contactLanguage: string | null | undefined, text: string): 'en' | 'es' | 'pt' {
@@ -54,15 +70,20 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!event.contactId || !event.channelId) throw new Error('Respond webhook is missing contact or channel ID')
   if (!await isRespondChannelEnabled(event.channelId)) return { action: 'channel_disabled' }
 
+  // Instagram can emit a synthetic placeholder in a nested field while leaving
+  // the normal text field empty. It is platform noise, not customer media.
+  if (payloadContainsPlatformUnsupportedPlaceholder(payload)) return { action: 'platform_placeholder_ignored' }
+
+  // Ignore delivery/status/unknown events that contain neither text nor media.
+  if (!event.text.trim() && !event.hasTransferableMedia) return { action: 'empty_event_ignored' }
+
   const identifier = `id:${event.contactId}`
   const liveContact = await client.getContact(identifier) as { assignee?: unknown; firstName?: string; lastName?: string; language?: string | null }
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
   if (!isUnassigned) return { action: 'human_assigned' }
 
-  if (isPlatformUnsupportedPlaceholder(event.text)) return { action: 'platform_placeholder_ignored' }
-
-  if (unsupported(event.messageType, event.text, event.hasAttachments)) {
+  if (unsupported(event.messageType, event.hasTransferableMedia)) {
     await transferToFrontDesk(event.contactId, event.contactName, client)
     return { action: 'front_desk' }
   }
@@ -83,7 +104,15 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
     conversationId = conversationService.createConversation().id
     setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null)
   }
-  const result = await conversationService.processMessage(conversationId, event.text)
+  let result
+  try {
+    result = await conversationService.processMessage(conversationId, event.text)
+  } catch (cause) {
+    if (!(cause instanceof CustomerMessageNotUnderstoodError)) throw cause
+    resetRespondConversationSession(event.contactId)
+    await transferToFrontDesk(event.contactId, event.contactName, client)
+    return { action: 'front_desk_unintelligible_text' }
+  }
   if (!await resetGenerationIsCurrent(event.contactId, control?.reset_at ?? null)) {
     resetRespondConversationSession(event.contactId)
     return { action: 'stale_after_reset' }

@@ -65,6 +65,7 @@ function extractFullName(message: string) {
 }
 
 export class ConversationNotFoundError extends Error {}
+export class CustomerMessageNotUnderstoodError extends Error {}
 
 export const initialGreeting = `Hello! I'm Maria from Dharma Clinic 🌿
 
@@ -143,6 +144,9 @@ export class ConversationService {
     if (!state) throw new ConversationNotFoundError('Conversation not found')
 
     const analysis = await this.dependencies.analyze(message, state)
+    if (analysis.isUnderstandable === false) {
+      throw new CustomerMessageNotUnderstoodError('Customer message could not be understood')
+    }
     const pendingBookingDetail = state.currentStage === 'booking_details' ? state.lastAskedQuestion : null
     const chosenSlot = selectedOfferedSlot(message, analysis, state.offeredAppointmentSlots ?? [])
     const flowBeforeAnalysis = {

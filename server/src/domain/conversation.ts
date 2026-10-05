@@ -68,6 +68,7 @@ export type QuestionTopic =
 
 export type MessageAnalysis = {
   detectedLanguage: PreferredLanguage
+  isUnderstandable?: boolean
   customerWeightGoal: string | null
   customerStateCode: string | null
   customerCity?: string | null
