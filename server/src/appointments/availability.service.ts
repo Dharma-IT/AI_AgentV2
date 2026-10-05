@@ -34,6 +34,15 @@ function preferenceMatches(timestamp: number, timezone: string, preference?: str
   const parts = localParts(timestamp, timezone)
   const hour = Number(parts.hour) % 24
   const minute = Number(parts.minute)
+  const weekday = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' }).format(timestamp).toLowerCase()
+  const weekdayAliases: Record<string, string[]> = {
+    sunday: ['sunday', 'domingo'], monday: ['monday', 'lunes', 'segunda'],
+    tuesday: ['tuesday', 'martes', 'terça'], wednesday: ['wednesday', 'miércoles', 'quarta'],
+    thursday: ['thursday', 'jueves', 'quinta'], friday: ['friday', 'viernes', 'sexta'],
+    saturday: ['saturday', 'sábado'],
+  }
+  const requestedWeekday = Object.entries(weekdayAliases).find(([, aliases]) => aliases.some((alias) => normalized.includes(alias)))?.[0]
+  if (requestedWeekday && weekday !== requestedWeekday) return false
   if (normalized.includes('morning') && hour >= 12) return false
   if (normalized.includes('afternoon') && hour < 12) return false
   const match = normalized.match(/\b(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\b/)
@@ -43,6 +52,17 @@ function preferenceMatches(timestamp: number, timezone: string, preference?: str
     if (hour !== requestedHour || minute !== Number(match[2] ?? 0)) return false
   }
   return true
+}
+
+function hasDateConstraint(preference?: string | null) {
+  if (!preference) return false
+  return /\b(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday|domingo|lunes|martes|miércoles|jueves|viernes|sábado|segunda|terça|quarta|quinta|sexta)\b/i.test(preference)
+}
+
+function hasTimeConstraint(preference?: string | null) {
+  if (!preference) return false
+  return /\b(?:morning|afternoon|mañana|tarde|manhã)\b/i.test(preference)
+    || /\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*(?:am|pm)\b/i.test(preference)
 }
 
 function chooseTwo(slots: AppointmentSlot[]) {
@@ -97,10 +117,10 @@ export async function findAppointmentAvailability(
     .filter((slot) => Date.parse(slot.startTime) > now + 15 * 60 * 1000)
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
   const preferred = all.filter((slot) => preferenceMatches(Date.parse(slot.startTime), timezone, input.preference))
-  const candidatePool = preferred.length ? preferred : all
+  const candidatePool = preferred.length ? preferred : hasDateConstraint(input.preference) ? [] : all
   const tomorrowSlots = candidatePool.filter((slot) => dateKey(Date.parse(slot.startTime), timezone) === tomorrowKey)
   const selectedPool = tomorrowSlots.length ? tomorrowSlots : candidatePool
-  return input.preference
+  return hasTimeConstraint(input.preference)
     ? chooseTwo(selectedPool)
     : chooseMorningAndAfternoon(selectedPool, timezone)
 }

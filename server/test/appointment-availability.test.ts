@@ -64,3 +64,27 @@ test('an explicit requested time is preferred when it is available', async () =>
   )
   assert.deepEqual(slots.map((slot) => slot.startTime), ['2026-10-06T16:20:00.000Z'])
 })
+
+test('a requested weekday offers one morning and one afternoon slot on that day', async () => {
+  const startsBySlug: Record<string, string[]> = {
+    'arles-martinez': ['2026-10-08T14:00:00.000Z', '2026-10-09T13:40:00.000Z'],
+    'brayam-zuluaga': ['2026-10-09T19:00:00.000Z'],
+  }
+  const client = {
+    async getAvailability(slug: string): Promise<HubSpotAvailability> {
+      const starts = startsBySlug[slug] ?? []
+      return { linkAvailability: { linkAvailabilityByDuration: {
+        '1200000': { meetingDurationMillis: 1_200_000, availabilities: starts.map((start) => ({ startMillisUtc: millis(start), endMillisUtc: millis(start) + 1_200_000 })) },
+      } } }
+    },
+  } as Pick<HubSpotClient, 'getAvailability'>
+  const slots = await findAppointmentAvailability(
+    { stateCode: 'FL', city: 'miami', preference: 'I am only available Friday' },
+    client,
+    millis('2026-10-05T12:00:00.000Z'),
+  )
+  assert.deepEqual(slots.map((slot) => slot.startTime), [
+    '2026-10-09T13:40:00.000Z',
+    '2026-10-09T19:00:00.000Z',
+  ])
+})
