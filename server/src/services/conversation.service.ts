@@ -72,6 +72,20 @@ We specialize in personalized weight loss with Semaglutide and Tirzepatide with 
 
 To better orient yourself, what is your main weight goal right now?`
 
+export function initialGreetingForLanguage(language: 'en' | 'es' | 'pt') {
+  if (language === 'es') return `¡Hola! Soy Maria de Dharma Clinic 🌿
+
+Nos especializamos en pérdida de peso personalizada con Semaglutida y Tirzepatida, con envío directo a tu hogar en 43 estados de EE. UU. 📦✨
+
+Para orientarte mejor, ¿cuál es tu principal objetivo de peso en este momento?`
+  if (language === 'pt') return `Olá! Sou Maria da Dharma Clinic 🌿
+
+Somos especializados em perda de peso personalizada com Semaglutida e Tirzepatida, com entrega direta na sua casa em 43 estados dos EUA. 📦✨
+
+Para te orientar melhor, qual é o seu principal objetivo de peso neste momento?`
+  return initialGreeting
+}
+
 type Dependencies = {
   repository: ConversationRepository
   analyze: typeof analyzeCustomerMessage

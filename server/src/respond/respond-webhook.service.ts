@@ -2,7 +2,7 @@ import { conversationService } from '../services/conversation.service.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
 import { isRespondChannelEnabled } from '../admin/respond-channel.service.js'
 import { getContactAutomation, mariaMayRespond, markMariaGreetingSent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
-import { initialGreeting } from '../services/conversation.service.js'
+import { initialGreetingForLanguage } from '../services/conversation.service.js'
 import { getRespondConversationId, setRespondConversationId } from './respond-session.service.js'
 
 type Json = Record<string, unknown>
@@ -44,7 +44,7 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!await isRespondChannelEnabled(event.channelId)) return { action: 'channel_disabled' }
 
   const identifier = `id:${event.contactId}`
-  const liveContact = await client.getContact(identifier) as { assignee?: unknown; firstName?: string; lastName?: string }
+  const liveContact = await client.getContact(identifier) as { assignee?: unknown; firstName?: string; lastName?: string; language?: string | null }
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
   if (!isUnassigned) return { action: 'human_assigned' }
@@ -57,7 +57,14 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!mariaMayRespond(control, true)) return { action: 'locked' }
 
   if (!control?.maria_greeting_sent_at) {
-    await client.sendTextMessage(identifier, initialGreeting)
+    const language = liveContact.language === 'es' || liveContact.language === 'pt'
+      ? liveContact.language
+      : /\b(hola|buenas|buenos días|buenas tardes)\b/i.test(event.text)
+        ? 'es'
+        : /\b(olá|oi|bom dia|boa tarde)\b/i.test(event.text)
+          ? 'pt'
+          : 'en'
+    await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
     await markMariaGreetingSent(event.contactId, event.contactName)
     return { action: 'greeted' }
   }
