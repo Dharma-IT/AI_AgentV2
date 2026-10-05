@@ -5,11 +5,14 @@ import { chatRouter, conversationRouter } from './routes/chat.routes.js'
 import { adminRouter } from './routes/admin.routes.js'
 import { supabaseStatus } from './lib/supabase.js'
 import { checkSupabaseHealth } from './services/supabase-health.service.js'
+import { respondWebhookRouter } from './routes/respond-webhook.routes.js'
 
 export const app = express()
 
 app.disable('x-powered-by')
-app.use(express.json({ limit: '32kb' }))
+app.use(express.json({ limit: '32kb', verify: (request, _response, buffer) => {
+  ;(request as typeof request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer)
+} }))
 
 app.get('/api/health', async (_request, response, next) => {
   try {
@@ -31,4 +34,5 @@ app.get('/api/health', async (_request, response, next) => {
 app.use('/api/chat', chatRouter)
 app.use('/api/conversations', conversationRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/respond', respondWebhookRouter)
 app.use(errorHandler)

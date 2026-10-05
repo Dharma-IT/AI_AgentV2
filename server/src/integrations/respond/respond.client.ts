@@ -91,4 +91,12 @@ export class RespondClient {
     )
     return readJson('Respond.io', response)
   }
+
+  async sendTextMessage(identifier: string, text: string): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/message`,
+      { method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: { type: 'text', text } }) },
+    )
+    return readJson('Respond.io', response)
+  }
 }

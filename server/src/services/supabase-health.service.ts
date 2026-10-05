@@ -48,7 +48,7 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealth> {
 
   const checks = await Promise.all(
     requiredTables.map(async (table) => {
-      const { error } = await client.from(table).select('id').limit(1)
+      const { error } = await client.from(table).select('*').limit(1)
       return { table, error }
     }),
   )
