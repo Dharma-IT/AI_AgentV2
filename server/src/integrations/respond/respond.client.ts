@@ -24,6 +24,16 @@ export interface RespondChannel {
   created_at?: number
 }
 
+export interface RespondContact {
+  id: number
+  firstName: string | null
+  lastName: string | null
+  phone: string | null
+  email: string | null
+  status: string
+  assignee: { id: number; firstName: string; lastName: string; email: string } | null
+}
+
 interface RespondPage<T> {
   items: T[]
   pagination?: { next?: string | null }
@@ -62,6 +72,17 @@ export class RespondClient {
       { headers: this.headers() },
     )
     return readJson('Respond.io', response)
+  }
+
+  async searchContacts(search: string, limit = 25): Promise<RespondContact[]> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/list?limit=${limit}`,
+      {
+        method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search, timezone: 'UTC', filter: { $and: [] } }),
+      },
+    )
+    return (await readJson<RespondPage<RespondContact>>('Respond.io', response)).items
   }
 
   async assignConversation(identifier: string, respondUserId: number): Promise<unknown> {

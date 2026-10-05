@@ -8,7 +8,7 @@ import { knowledgeHealth, retryFailedEmbeddings } from '../knowledge/knowledge.s
 import { retryEmbeddingsSchema } from '../knowledge/knowledge.schemas.js'
 import { respondChannelIdSchema, respondChannelToggleSchema, respondSourceSchema } from '../admin/respond-channel.schemas.js'
 import { setRespondChannelEnabled, setRespondProviderEnabled, synchronizeRespondChannels } from '../admin/respond-channel.service.js'
-import { listContactAutomation, resetContactToMaria } from '../respond/contact-automation.service.js'
+import { resetContactToMaria, searchContactControls } from '../respond/contact-automation.service.js'
 import { z } from 'zod'
 
 export const adminRouter = Router()
@@ -37,7 +37,7 @@ adminRouter.put('/respond-channel-providers/:source', async (request, response, 
 adminRouter.get('/respond-contacts', async (request, response, next) => {
   try {
     const search = z.string().max(100).catch('').parse(request.query.search)
-    response.json({ data: await listContactAutomation(search) })
+    response.json({ data: await searchContactControls(search) })
   } catch (error) { next(error) }
 })
 adminRouter.post('/respond-contacts/:contactId/reset', async (request, response, next) => {

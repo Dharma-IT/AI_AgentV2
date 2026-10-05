@@ -33,6 +33,29 @@ export async function listContactAutomation(search = '') {
   return result.data as ContactAutomation[]
 }
 
+export async function searchContactControls(search: string, client = new RespondClient()) {
+  if (!search.trim()) return listContactAutomation()
+  const [contacts, controls] = await Promise.all([
+    client.searchContacts(search.trim()),
+    listContactAutomation(),
+  ])
+  const controlsById = new Map(controls.map((control) => [control.respond_contact_id, control]))
+  return contacts.map((contact) => {
+    const control = controlsById.get(String(contact.id))
+    const assigneeName = contact.assignee ? `${contact.assignee.firstName} ${contact.assignee.lastName}`.trim() : null
+    return {
+      respond_contact_id: String(contact.id),
+      contact_name: `${contact.firstName ?? ''} ${contact.lastName ?? ''}`.trim() || contact.email || contact.phone,
+      mode: control?.mode ?? 'maria',
+      owner_name: control?.owner_name ?? assigneeName,
+      locked_until: control?.locked_until ?? null,
+      last_action: control?.last_action ?? null,
+      respond_status: contact.status,
+      currently_assigned: Boolean(contact.assignee),
+    }
+  })
+}
+
 export async function resetContactToMaria(contactId: string, adminId: string, client = new RespondClient()) {
   await client.unassignConversation(`id:${contactId}`)
   resetRespondConversationSession(contactId)
