@@ -73,11 +73,6 @@ export async function resetContactToMaria(
   adminId: string,
   client: Pick<RespondClient, 'getContact' | 'unassignConversation'> = new RespondClient(),
 ) {
-  const contact = await client.getContact(`id:${contactId}`) as { assignee?: unknown }
-  if (contactNeedsUnassignment(contact)) {
-    await client.unassignConversation(`id:${contactId}`)
-  }
-  resetRespondConversationSession(contactId)
   const now = new Date().toISOString()
   const result = await database().from('respond_contact_automation').upsert({
     respond_contact_id: contactId,
@@ -86,6 +81,13 @@ export async function resetContactToMaria(
     last_action: 'manual_admin_reset', maria_greeting_sent_at: null, reset_by: adminId, reset_at: now,
   }, { onConflict: 'respond_contact_id' }).select('*').single()
   if (result.error) throw new DatabaseOperationError(result.error.message, result.error.code)
+  resetRespondConversationSession(contactId)
+  try {
+    const contact = await client.getContact(`id:${contactId}`) as { assignee?: unknown }
+    if (contactNeedsUnassignment(contact)) await client.unassignConversation(`id:${contactId}`)
+  } catch (error) {
+    console.error('Respond contact was reset, but assignment synchronization failed', error instanceof Error ? error.message : error)
+  }
   return result.data as ContactAutomation
 }
 
