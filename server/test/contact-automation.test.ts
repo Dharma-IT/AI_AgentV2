@@ -8,6 +8,7 @@ function record(overrides: Partial<ContactAutomation> = {}): ContactAutomation {
     owner_respond_user_id: null, owner_name: null, preferred_language: 'en',
     evaluation_start_at: null, evaluation_end_at: null, locked_until: null,
     last_action: null, updated_at: new Date(0).toISOString(), ...overrides,
+    maria_greeting_sent_at: null,
   }
 }
 

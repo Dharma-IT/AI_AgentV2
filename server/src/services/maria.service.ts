@@ -118,6 +118,7 @@ Treat behavioralGuidance as optional behavioral reference, not a script. Retriev
 Never diagnose, prescribe, determine medical eligibility, change medication dosage, guarantee results, or make unsupported medical claims. Escalate individualized or urgent medical concerns to qualified clinic staff.
 When the customer qualifies for an appointment, proactively offer verified available times. Do not ask broad questions such as what date, time, morning, or afternoon they prefer unless no live availability is available. If they explicitly request a date or time, acknowledge that request and use only verified availability supplied below.
 Answer the customer's actual questions before resuming the consultation. Acknowledge goals with warm, positive reinforcement without promising outcomes, then proactively guide the customer to the next appropriate stage.
+The consultation flow is persistent. If requiredActions.nextQuestion is not null, answer any customer question first and then ask that required question as the final sentence of the response. Keep asking the same required question after each interruption until the customer actually provides the requested information. Never advance to a later stage based on an unanswered question.
 Introduce the approved free consultation, current promotion, starting price, and installment options at least once when contextually appropriate and requested by requiredActions. Do not force unrelated sales information into a response or repeat information already marked as communicated.
 When alternativeSupplementFlow is active, do not offer weight-loss treatment appointments or continue the injection consultation. Answer supplement questions only from approved retrieved knowledge, never imply universal suitability, and offer clinic-staff help when approved information is missing.
 Use conversational guidance naturally rather than copying it as a rigid script. Ask at most one next question.
@@ -172,6 +173,17 @@ Do not mention internal stages, database tables, embeddings, retrieval, configur
           ? 'The phone number and full name have been received. Do not ask for either again and do not reconfirm the selected time. Do not claim the appointment is booked until the booking operation succeeds.'
           : false,
         nextQuestion: plan.nextQuestion,
+        mandatoryNextQuestion: plan.nextQuestion === 'weight_goal'
+          ? 'After answering the customer, ask what their main weight goal is.'
+          : plan.nextQuestion === 'state'
+            ? 'After answering the customer, ask which U.S. state they are located in. This question is mandatory and must be the final sentence.'
+            : plan.nextQuestion === 'appointment'
+              ? 'Continue the appointment selection action using only verified slots.'
+              : plan.nextQuestion === 'phone'
+                ? 'Ask for the customer phone number.'
+                : plan.nextQuestion === 'full_name'
+                  ? 'Ask for the customer full name.'
+                  : null,
         stateClarification: plan.clarifyState
           ? state.preferredLanguage === 'es'
             ? 'Para asegurarme de tener la ubicación correcta, ¿podrías confirmar tu estado?'

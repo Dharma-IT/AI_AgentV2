@@ -2,6 +2,7 @@ import { supabaseAdminClient } from '../lib/supabase.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
 import { INTEGRATION_USER_MAPPINGS } from '../integrations/user-mapping/user-mapping.js'
 import { DatabaseOperationError } from '../admin/commercial.service.js'
+import { resetRespondConversationSession } from './respond-session.service.js'
 
 export type ContactAutomation = {
   id: string
@@ -15,6 +16,7 @@ export type ContactAutomation = {
   evaluation_end_at: string | null
   locked_until: string | null
   last_action: string | null
+  maria_greeting_sent_at: string | null
   updated_at: string
 }
 
@@ -33,12 +35,13 @@ export async function listContactAutomation(search = '') {
 
 export async function resetContactToMaria(contactId: string, adminId: string, client = new RespondClient()) {
   await client.unassignConversation(`id:${contactId}`)
+  resetRespondConversationSession(contactId)
   const now = new Date().toISOString()
   const result = await database().from('respond_contact_automation').upsert({
     respond_contact_id: contactId,
     mode: 'maria', owner_respond_user_id: null, owner_name: null,
     evaluation_start_at: null, evaluation_end_at: null, locked_until: null,
-    last_action: 'manual_admin_reset', reset_by: adminId, reset_at: now,
+    last_action: 'manual_admin_reset', maria_greeting_sent_at: null, reset_by: adminId, reset_at: now,
   }, { onConflict: 'respond_contact_id' }).select('*').single()
   if (result.error) throw new DatabaseOperationError(result.error.message, result.error.code)
   return result.data as ContactAutomation
@@ -78,6 +81,16 @@ export async function getContactAutomation(contactId: string) {
   const result = await database().from('respond_contact_automation').select('*').eq('respond_contact_id', contactId).maybeSingle()
   if (result.error) throw new DatabaseOperationError(result.error.message, result.error.code)
   return result.data as ContactAutomation | null
+}
+
+export async function markMariaGreetingSent(contactId: string, contactName?: string) {
+  const now = new Date().toISOString()
+  const result = await database().from('respond_contact_automation').upsert({
+    respond_contact_id: contactId, contact_name: contactName ?? null, mode: 'maria',
+    maria_greeting_sent_at: now, last_action: 'maria_greeting_sent',
+  }, { onConflict: 'respond_contact_id' }).select('*').single()
+  if (result.error) throw new DatabaseOperationError(result.error.message, result.error.code)
+  return result.data as ContactAutomation
 }
 
 export function mariaMayRespond(record: ContactAutomation | null, isUnassigned: boolean, now = Date.now()) {

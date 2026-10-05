@@ -1,10 +1,11 @@
 import { conversationService } from '../services/conversation.service.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
 import { isRespondChannelEnabled } from '../admin/respond-channel.service.js'
-import { getContactAutomation, mariaMayRespond, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
+import { getContactAutomation, mariaMayRespond, markMariaGreetingSent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
+import { initialGreeting } from '../services/conversation.service.js'
+import { getRespondConversationId, setRespondConversationId } from './respond-session.service.js'
 
 type Json = Record<string, unknown>
-const conversations = new Map<string, string>()
 
 function object(value: unknown): Json | null { return value && typeof value === 'object' && !Array.isArray(value) ? value as Json : null }
 function first(...values: unknown[]) { return values.find((value) => value !== undefined && value !== null) }
@@ -55,10 +56,16 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   const control = await getContactAutomation(event.contactId)
   if (!mariaMayRespond(control, true)) return { action: 'locked' }
 
-  let conversationId = conversations.get(event.contactId)
+  if (!control?.maria_greeting_sent_at) {
+    await client.sendTextMessage(identifier, initialGreeting)
+    await markMariaGreetingSent(event.contactId, event.contactName)
+    return { action: 'greeted' }
+  }
+
+  let conversationId = getRespondConversationId(event.contactId)
   if (!conversationId) {
     conversationId = conversationService.createConversation().id
-    conversations.set(event.contactId, conversationId)
+    setRespondConversationId(event.contactId, conversationId)
   }
   const result = await conversationService.processMessage(conversationId, event.text)
   await client.sendTextMessage(identifier, result.reply)
