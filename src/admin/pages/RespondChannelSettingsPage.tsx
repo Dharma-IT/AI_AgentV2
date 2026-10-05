@@ -49,6 +49,8 @@ export function RespondChannelSettingsPage() {
   const [saving, setSaving] = useState('')
   const [contacts, setContacts] = useState<ContactControl[]>([])
   const [contactSearch, setContactSearch] = useState('')
+  const [contactSearchStatus, setContactSearchStatus] = useState<'idle'|'loading'|'done'>('idle')
+  const [contactError, setContactError] = useState('')
 
   const load = useCallback(async () => {
     if (!session) return
@@ -94,10 +96,16 @@ export function RespondChannelSettingsPage() {
 
   async function loadContacts(search = contactSearch) {
     if (!session) return
-    const response = await adminFetch(session.access_token, `/respond-contacts?search=${encodeURIComponent(search)}`)
-    const body = await response.json() as { data?:ContactControl[]; error?:string }
-    if (!response.ok) throw new Error(body.error ?? 'Unable to load contact controls')
-    setContacts(body.data ?? [])
+    setContactSearchStatus('loading'); setContactError('')
+    try {
+      const response = await adminFetch(session.access_token, `/respond-contacts?search=${encodeURIComponent(search)}`)
+      const body = await response.json() as { data?:ContactControl[]; error?:string }
+      if (!response.ok) throw new Error(body.error ?? 'Unable to load contact controls')
+      setContacts(body.data ?? []); setContactSearchStatus('done')
+    } catch (cause) {
+      setContactError(cause instanceof Error ? cause.message : 'Unable to search Respond.io contacts')
+      setContactSearchStatus('done')
+    }
   }
 
   async function resetContact(contact: ContactControl) {
@@ -143,8 +151,9 @@ export function RespondChannelSettingsPage() {
     </div>
     <section className="overflow-hidden rounded-2xl border bg-white">
       <header className="border-b bg-slate-50 px-5 py-4"><h2 className="font-semibold">Maria contact controls</h2><p className="mt-1 text-sm text-slate-500">Review booking locks and Front Desk handoffs. Reset clears Maria's lock and unassigns the contact.</p></header>
-      <form className="flex gap-2 border-b p-4" onSubmit={(event)=>{event.preventDefault();void loadContacts().catch((cause:unknown)=>setError(cause instanceof Error?cause.message:'Unable to search contacts'))}}><input value={contactSearch} onChange={(event)=>setContactSearch(event.target.value)} placeholder="Search contact ID, name, or owner" className="min-w-0 flex-1 rounded-xl border px-3 py-2"/><button className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white">Search</button></form>
-      {contacts.length===0?<p className="p-5 text-sm text-slate-500">Search by Respond.io contact name, email, phone number, or contact ID.</p>:<div className="divide-y">{contacts.map((contact)=><div key={contact.respond_contact_id} className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center"><div><p className="font-medium">{contact.contact_name??`Contact ${contact.respond_contact_id}`}</p><p className="mt-1 text-xs text-slate-500">ID {contact.respond_contact_id} · {contact.mode.replace('_',' ')}{contact.respond_status?` · ${contact.respond_status}`:''}{contact.owner_name?` · assigned to ${contact.owner_name}`:''}{contact.locked_until?` · locked until ${new Date(contact.locked_until).toLocaleString()}`:''}</p></div><button type="button" disabled={saving!==''} onClick={()=>void resetContact(contact)} className="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium disabled:opacity-50"><RotateCcw size={15}/>Reset chat memory</button></div>)}</div>}
+      <form className="flex gap-2 border-b p-4" onSubmit={(event)=>{event.preventDefault();void loadContacts()}}><input value={contactSearch} onChange={(event)=>setContactSearch(event.target.value)} placeholder="Search contact ID, name, email, or phone" className="min-w-0 flex-1 rounded-xl border px-3 py-2"/><button type="submit" disabled={contactSearchStatus==='loading'||!contactSearch.trim()} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">{contactSearchStatus==='loading'?'Searching…':'Search'}</button></form>
+      {contactError?<p className="border-b bg-red-50 p-4 text-sm text-red-700">{contactError}</p>:null}
+      {contacts.length===0?<p className="p-5 text-sm text-slate-500">{contactSearchStatus==='done'?'No Respond.io contacts matched that search.':'Search by Respond.io contact name, email, phone number, or contact ID.'}</p>:<div className="divide-y">{contacts.map((contact)=><div key={contact.respond_contact_id} className="flex flex-col justify-between gap-3 p-5 sm:flex-row sm:items-center"><div><p className="font-medium">{contact.contact_name??`Contact ${contact.respond_contact_id}`}</p><p className="mt-1 text-xs text-slate-500">ID {contact.respond_contact_id} · {contact.mode.replace('_',' ')}{contact.respond_status?` · ${contact.respond_status}`:''}{contact.owner_name?` · assigned to ${contact.owner_name}`:''}{contact.locked_until?` · locked until ${new Date(contact.locked_until).toLocaleString()}`:''}</p></div><button type="button" disabled={saving!==''} onClick={()=>void resetContact(contact)} className="inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium disabled:opacity-50"><RotateCcw size={15}/>Reset chat memory</button></div>)}</div>}
     </section>
   </div>
 }

@@ -35,8 +35,15 @@ export async function listContactAutomation(search = '') {
 
 export async function searchContactControls(search: string, client = new RespondClient()) {
   if (!search.trim()) return listContactAutomation()
+  const normalizedSearch = search.trim()
+  const directContact = /^\d+$/.test(normalizedSearch)
+    ? await client.getContact(`id:${normalizedSearch}`) as {
+        id: number; firstName: string | null; lastName: string | null; phone: string | null
+        email: string | null; status: string; assignee: { firstName: string; lastName: string } | null
+      }
+    : null
   const [contacts, controls] = await Promise.all([
-    client.searchContacts(search.trim()),
+    directContact ? Promise.resolve([directContact]) : client.searchContacts(normalizedSearch),
     listContactAutomation(),
   ])
   const controlsById = new Map(controls.map((control) => [control.respond_contact_id, control]))
