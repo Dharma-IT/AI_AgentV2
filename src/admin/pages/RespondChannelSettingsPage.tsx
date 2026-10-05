@@ -110,13 +110,13 @@ export function RespondChannelSettingsPage() {
 
   async function resetContact(contact: ContactControl) {
     if (!session || !window.confirm(`Allow Maria to respond to ${contact.contact_name ?? contact.respond_contact_id}? This will also unassign the conversation.`)) return
-    setSaving(`contact:${contact.respond_contact_id}`); setError('')
+    setSaving(`contact:${contact.respond_contact_id}`); setError(''); setContactError('')
     try {
       const response = await adminFetch(session.access_token, `/respond-contacts/${encodeURIComponent(contact.respond_contact_id)}/reset`, { method:'POST' })
       const body = await response.json() as { error?:string }
       if (!response.ok) throw new Error(body.error ?? 'Unable to reset contact')
       await loadContacts()
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to reset contact') }
+    } catch (cause) { setContactError(cause instanceof Error ? cause.message : 'Unable to reset contact') }
     finally { setSaving('') }
   }
 

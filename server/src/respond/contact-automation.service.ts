@@ -33,6 +33,10 @@ export async function listContactAutomation(search = '') {
   return result.data as ContactAutomation[]
 }
 
+export function contactNeedsUnassignment(contact: { assignee?: unknown }) {
+  return contact.assignee !== null && contact.assignee !== undefined
+}
+
 export async function searchContactControls(search: string, client = new RespondClient()) {
   if (!search.trim()) return listContactAutomation()
   const normalizedSearch = search.trim()
@@ -63,8 +67,15 @@ export async function searchContactControls(search: string, client = new Respond
   })
 }
 
-export async function resetContactToMaria(contactId: string, adminId: string, client = new RespondClient()) {
-  await client.unassignConversation(`id:${contactId}`)
+export async function resetContactToMaria(
+  contactId: string,
+  adminId: string,
+  client: Pick<RespondClient, 'getContact' | 'unassignConversation'> = new RespondClient(),
+) {
+  const contact = await client.getContact(`id:${contactId}`) as { assignee?: unknown }
+  if (contactNeedsUnassignment(contact)) {
+    await client.unassignConversation(`id:${contactId}`)
+  }
   resetRespondConversationSession(contactId)
   const now = new Date().toISOString()
   const result = await database().from('respond_contact_automation').upsert({

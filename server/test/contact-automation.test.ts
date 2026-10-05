@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { mariaMayRespond, type ContactAutomation } from '../src/respond/contact-automation.service.js'
+import { contactNeedsUnassignment, mariaMayRespond, type ContactAutomation } from '../src/respond/contact-automation.service.js'
 
 function record(overrides: Partial<ContactAutomation> = {}): ContactAutomation {
   return {
@@ -26,5 +26,13 @@ describe('Maria contact response policy', () => {
 
   it('keeps Front Desk handoffs blocked even while unassigned', () => {
     assert.equal(mariaMayRespond(record({ mode: 'front_desk' }), true), false)
+  })
+})
+
+describe('manual reset assignment handling', () => {
+  it('skips unassignment when Respond.io already reports the contact unassigned', () => {
+    assert.equal(contactNeedsUnassignment({ assignee: null }), false)
+    assert.equal(contactNeedsUnassignment({}), false)
+    assert.equal(contactNeedsUnassignment({ assignee: { id: 123 } }), true)
   })
 })
