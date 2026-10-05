@@ -17,6 +17,7 @@ export type ContactAutomation = {
   locked_until: string | null
   last_action: string | null
   maria_greeting_sent_at: string | null
+  reset_at: string | null
   updated_at: string
 }
 

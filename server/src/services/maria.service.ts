@@ -40,6 +40,10 @@ A weight goal is a desired weight, pounds to lose, or a general goal such as los
 Identify every question topic. Detect the language of the latest message.
 Capture scheduling preferences, but never interpret a vague answer as a confirmed booking.`
 
+export function isGreetingOnly(message: string) {
+  return /^\s*[¡¿]*(?:hello|hi|hey|hola|buenas|buenos días|buenas tardes|olá|oi|bom dia|boa tarde)[!.?¡¿\s]*$/iu.test(message)
+}
+
 export async function analyzeCustomerMessage(
   message: string,
   state: ConversationState,
@@ -66,6 +70,7 @@ Latest customer message: ${message}`,
   const locationAttempted = /\b(?:live|living|located|staying|city|state|from|actually|vivo|moro|estoy|cidade|estado)\b/i.test(message)
   return {
     ...response.output_parsed,
+    customerWeightGoal: isGreetingOnly(message) ? null : response.output_parsed.customerWeightGoal,
     customerStateCode: recognition.stateCode,
     customerCity: recognition.city ?? null,
     stateRecognition: recognition.kind === 'none' && locationAttempted ? 'ambiguous' : recognition.kind,

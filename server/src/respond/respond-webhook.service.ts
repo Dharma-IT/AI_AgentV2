@@ -69,10 +69,10 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
     return { action: 'greeted' }
   }
 
-  let conversationId = getRespondConversationId(event.contactId)
+  let conversationId = getRespondConversationId(event.contactId, control?.reset_at ?? null)
   if (!conversationId) {
     conversationId = conversationService.createConversation().id
-    setRespondConversationId(event.contactId, conversationId)
+    setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null)
   }
   const result = await conversationService.processMessage(conversationId, event.text)
   await client.sendTextMessage(identifier, result.reply)

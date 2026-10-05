@@ -19,9 +19,11 @@ describe('Respond incoming webhook parsing', () => {
 
 describe('Respond conversation reset', () => {
   it('removes retained flow state so Reset actions starts Maria fresh', () => {
-    setRespondConversationId('552034219', 'old-conversation')
-    assert.equal(getRespondConversationId('552034219'), 'old-conversation')
+    setRespondConversationId('552034219', 'old-conversation', '2026-10-05T19:35:32Z')
+    assert.equal(getRespondConversationId('552034219', '2026-10-05T19:35:32Z'), 'old-conversation')
+    assert.equal(getRespondConversationId('552034219', '2026-10-05T19:36:00Z'), undefined)
+    setRespondConversationId('552034219', 'another-conversation', null)
     resetRespondConversationSession('552034219')
-    assert.equal(getRespondConversationId('552034219'), undefined)
+    assert.equal(getRespondConversationId('552034219', null), undefined)
   })
 })
