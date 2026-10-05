@@ -17,6 +17,7 @@ const requiredTables = [
   'clinic_information',
   'business_policies',
   'knowledge_embeddings',
+  'respond_channel_policies',
 ] as const
 
 export type SupabaseHealth = {

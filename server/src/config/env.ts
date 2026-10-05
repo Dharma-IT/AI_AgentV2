@@ -12,6 +12,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional().default(''),
   SUPABASE_DB_PASSWORD: z.string().optional().default(''),
   RESPOND_API_TOKEN: z.string().optional().default(''),
+  RESPOND_WEBHOOK_SIGNING_KEY: z.string().optional().default(''),
   HUBSPOT_PRIVATE_APP_TOKEN: z.string().optional().default(''),
   AIRCALL_API_ID: z.string().optional().default(''),
   AIRCALL_API_TOKEN: z.string().optional().default(''),

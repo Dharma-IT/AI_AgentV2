@@ -7,6 +7,7 @@ import { ManagementPage } from './admin/pages/ManagementPage'
 import { BusinessPage } from './admin/pages/BusinessPage'
 import { KnowledgePage } from './admin/pages/KnowledgePage'
 import { KnowledgeHealthPage } from './admin/pages/KnowledgeHealthPage'
+import { RespondChannelSettingsPage } from './admin/pages/RespondChannelSettingsPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <App /> },
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'objections', element: <KnowledgePage kind="objection-handling" /> },
       { path: 'scenarios', element: <KnowledgePage kind="conversation-scenarios" /> },
       { path: 'knowledge-health', element: <KnowledgeHealthPage /> },
+      { path: 'settings', element: <RespondChannelSettingsPage /> },
       { path: '*', element: <PlaceholderPage /> },
     ],
   },

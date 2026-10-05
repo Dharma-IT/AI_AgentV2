@@ -21,5 +21,5 @@ export const adminNavigation = [
   { path: '/admin/knowledge-health', label: 'Knowledge Integration', icon: HeartPulse },
   { path: '/admin/compliance', label: 'Compliance & Restrictions', icon: ShieldCheck },
   { path: '/admin/documents', label: 'Knowledge Documents', icon: FileText },
-  { path: '/admin/settings', label: 'Settings', icon: Settings },
+  { path: '/admin/settings', label: 'Respond.io Channels', icon: Settings },
 ] as const

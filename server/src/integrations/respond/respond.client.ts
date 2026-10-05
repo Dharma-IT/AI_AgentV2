@@ -17,6 +17,13 @@ export interface RespondUser {
   team: RespondTeamReference | null
 }
 
+export interface RespondChannel {
+  id: number
+  name: string
+  source: string
+  created_at?: number
+}
+
 interface RespondPage<T> {
   items: T[]
   pagination?: { next?: string | null }
@@ -39,6 +46,14 @@ export class RespondClient {
       { headers: this.headers() },
     )
     return (await readJson<RespondPage<RespondUser>>('Respond.io', response)).items
+  }
+
+  async listChannels(limit = 100): Promise<RespondChannel[]> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/space/channel?limit=${limit}`,
+      { headers: this.headers() },
+    )
+    return (await readJson<RespondPage<RespondChannel>>('Respond.io', response)).items
   }
 
   async getContact(identifier: string): Promise<unknown> {
