@@ -42,6 +42,13 @@ export function isPlatformUnsupportedPlaceholder(text: string) {
   return /^\s*unsupported message\s*$/i.test(text)
 }
 
+export function inferredLanguage(contactLanguage: string | null | undefined, text: string): 'en' | 'es' | 'pt' {
+  if (contactLanguage === 'es' || contactLanguage === 'pt' || contactLanguage === 'en') return contactLanguage
+  if (/(?:^|\s)(?:hola|buenas|buenos días|buenas tardes)(?=\s|[!?.,¡¿]|$)/i.test(text)) return 'es'
+  if (/(?:^|\s)(?:olá|oi|bom dia|boa tarde)(?=\s|[!?.,¡¿]|$)/i.test(text)) return 'pt'
+  return 'en'
+}
+
 export async function processIncomingWebhook(payload: unknown, client = new RespondClient()) {
   const event = parseIncomingWebhook(payload)
   if (!event.contactId || !event.channelId) throw new Error('Respond webhook is missing contact or channel ID')
@@ -63,15 +70,10 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!mariaMayRespond(control, true)) return { action: 'locked' }
 
   if (!control?.maria_greeting_sent_at) {
-    const language = liveContact.language === 'es' || liveContact.language === 'pt'
-      ? liveContact.language
-      : /\b(hola|buenas|buenos días|buenas tardes)\b/i.test(event.text)
-        ? 'es'
-        : /\b(olá|oi|bom dia|boa tarde)\b/i.test(event.text)
-          ? 'pt'
-          : 'en'
+    const language = inferredLanguage(liveContact.language, event.text)
     const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
     if (!claimed) return { action: 'stale_after_reset' }
+    if (!liveContact.language) await client.updateContactLanguage(identifier, language)
     await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
     return { action: 'greeted' }
   }
@@ -85,6 +87,10 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!await resetGenerationIsCurrent(event.contactId, control?.reset_at ?? null)) {
     resetRespondConversationSession(event.contactId)
     return { action: 'stale_after_reset' }
+  }
+  const detectedLanguage = result.state.preferredLanguage
+  if (!liveContact.language && (detectedLanguage === 'en' || detectedLanguage === 'es' || detectedLanguage === 'pt')) {
+    await client.updateContactLanguage(identifier, detectedLanguage)
   }
   await client.sendTextMessage(identifier, result.reply)
   return { action: 'replied' }

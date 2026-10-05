@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { isPlatformUnsupportedPlaceholder, parseIncomingWebhook } from '../src/respond/respond-webhook.service.js'
+import { inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -21,6 +21,13 @@ it('ignores the Instagram unsupported-message placeholder without treating norma
   assert.equal(isPlatformUnsupportedPlaceholder('Unsupported Message'), true)
   assert.equal(isPlatformUnsupportedPlaceholder('  unsupported message  '), true)
   assert.equal(isPlatformUnsupportedPlaceholder('I cannot understand this message'), false)
+})
+
+it('infers a missing Respond.io language while preserving an existing one', () => {
+  assert.equal(inferredLanguage(null, 'Hola'), 'es')
+  assert.equal(inferredLanguage(null, 'Olá'), 'pt')
+  assert.equal(inferredLanguage(null, 'Hello'), 'en')
+  assert.equal(inferredLanguage('es', 'Hello'), 'es')
 })
 
 describe('Respond conversation reset', () => {

@@ -74,6 +74,17 @@ export class RespondClient {
     return readJson('Respond.io', response)
   }
 
+  async updateContactLanguage(identifier: string, language: 'en' | 'es' | 'pt'): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}`,
+      {
+        method: 'PUT', headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language }),
+      },
+    )
+    return readJson('Respond.io', response)
+  }
+
   async searchContacts(search: string, limit = 25): Promise<RespondContact[]> {
     const response = await this.fetchImplementation(
       `${RESPOND_BASE_URL}/contact/list?limit=${limit}`,
