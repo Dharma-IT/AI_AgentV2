@@ -38,6 +38,10 @@ function unsupported(type: string, text: string, hasAttachments: boolean) {
   return !text.trim()
 }
 
+export function isPlatformUnsupportedPlaceholder(text: string) {
+  return /^\s*unsupported message\s*$/i.test(text)
+}
+
 export async function processIncomingWebhook(payload: unknown, client = new RespondClient()) {
   const event = parseIncomingWebhook(payload)
   if (!event.contactId || !event.channelId) throw new Error('Respond webhook is missing contact or channel ID')
@@ -48,6 +52,8 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
   if (!isUnassigned) return { action: 'human_assigned' }
+
+  if (isPlatformUnsupportedPlaceholder(event.text)) return { action: 'platform_placeholder_ignored' }
 
   if (unsupported(event.messageType, event.text, event.hasAttachments)) {
     await transferToFrontDesk(event.contactId, event.contactName, client)

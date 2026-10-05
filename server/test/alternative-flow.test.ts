@@ -108,7 +108,7 @@ test('typing an offered local time selects it without reconfirmation', async () 
   assert.equal(result.reply, 'Please provide your phone number.')
 })
 
-test('replying with a choice number selects the corresponding offered slot', async () => {
+test('replying with choice B selects the corresponding offered slot', async () => {
   const repository = new InMemoryConversationRepository()
   const slots = [
     { startTime: '2026-10-06T14:40:00.000Z', endTime: '2026-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' },
@@ -125,7 +125,7 @@ test('replying with a choice number selects the corresponding offered slot', asy
   })
   const conversation = service.createConversation()
   await service.processMessage(conversation.id, 'I want to lose weight in Florida')
-  const result = await service.processMessage(conversation.id, '2')
+  const result = await service.processMessage(conversation.id, 'B')
 
   assert.equal(result.state.selectedAppointmentSlot?.startTime, slots[1]?.startTime)
   assert.equal(result.state.lastAskedQuestion, 'phone')

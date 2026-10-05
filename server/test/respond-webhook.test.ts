@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { parseIncomingWebhook } from '../src/respond/respond-webhook.service.js'
+import { isPlatformUnsupportedPlaceholder, parseIncomingWebhook } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -15,6 +15,12 @@ describe('Respond incoming webhook parsing', () => {
       messageId: '99', messageType: 'text', text: 'AI Agent Test', hasAttachments: false, isUnassigned: true,
     })
   })
+})
+
+it('ignores the Instagram unsupported-message placeholder without treating normal text as unsupported', () => {
+  assert.equal(isPlatformUnsupportedPlaceholder('Unsupported Message'), true)
+  assert.equal(isPlatformUnsupportedPlaceholder('  unsupported message  '), true)
+  assert.equal(isPlatformUnsupportedPlaceholder('I cannot understand this message'), false)
 })
 
 describe('Respond conversation reset', () => {

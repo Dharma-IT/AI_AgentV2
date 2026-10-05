@@ -12,8 +12,8 @@ import { bookAppointment } from '../appointments/booking.service.js'
 function selectedOfferedSlot(message: string, analysis: MessageAnalysis, slots: AppointmentSlot[]) {
   if (!['accepts_offer', 'specific_time'].includes(analysis.appointmentIntent) || slots.length === 0) return null
   const normalized = message.toLowerCase()
-  if (/^\s*#?1\s*$/.test(normalized) || /\b(option|choice|number|slot)\s*#?1\b/.test(normalized) || /\b(first|1st|one|earlier|primero|primeiro)\b/.test(normalized)) return slots[0] ?? null
-  if (/^\s*#?2\s*$/.test(normalized) || /\b(option|choice|number|slot)\s*#?2\b/.test(normalized) || /\b(second|2nd|two|later|segundo)\b/.test(normalized)) return slots[1] ?? null
+  if (/^\s*(?:a|#?1)\s*$/.test(normalized) || /\b(option|choice|number|slot|letter)\s*(?:a|#?1)\b/.test(normalized) || /\b(first|1st|one|earlier|primero|primeiro|la primera|a primeira)\b/.test(normalized)) return slots[0] ?? null
+  if (/^\s*(?:b|#?2)\s*$/.test(normalized) || /\b(option|choice|number|slot|letter)\s*(?:b|#?2)\b/.test(normalized) || /\b(second|2nd|two|later|segundo|la segunda|a segunda)\b/.test(normalized)) return slots[1] ?? null
   const period = /\b(morning|mañana|manhã)\b/.test(normalized)
     ? 'morning'
     : /\b(afternoon|tarde)\b/.test(normalized)
