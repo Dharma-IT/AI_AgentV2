@@ -18,6 +18,8 @@ const requiredTables = [
   'business_policies',
   'knowledge_embeddings',
   'respond_channel_policies',
+  'respond_contact_automation',
+  'respond_front_desk_rotation',
 ] as const
 
 export type SupabaseHealth = {

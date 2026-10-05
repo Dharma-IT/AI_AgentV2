@@ -75,4 +75,20 @@ export class RespondClient {
     )
     return readJson('Respond.io', response)
   }
+
+  async unassignConversation(identifier: string): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/conversation/assignee`,
+      { method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ assignee: null }) },
+    )
+    return readJson('Respond.io', response)
+  }
+
+  async setConversationStatus(identifier: string, status: 'open' | 'close'): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/conversation/status`,
+      { method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) },
+    )
+    return readJson('Respond.io', response)
+  }
 }
