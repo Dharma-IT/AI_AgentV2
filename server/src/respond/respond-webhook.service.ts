@@ -1,9 +1,9 @@
 import { conversationService } from '../services/conversation.service.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
 import { isRespondChannelEnabled } from '../admin/respond-channel.service.js'
-import { getContactAutomation, mariaMayRespond, markMariaGreetingSent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
+import { getContactAutomation, mariaMayRespond, markMariaGreetingSent, resetGenerationIsCurrent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
 import { initialGreetingForLanguage } from '../services/conversation.service.js'
-import { getRespondConversationId, setRespondConversationId } from './respond-session.service.js'
+import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from './respond-session.service.js'
 
 type Json = Record<string, unknown>
 
@@ -64,8 +64,9 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
         : /\b(olá|oi|bom dia|boa tarde)\b/i.test(event.text)
           ? 'pt'
           : 'en'
+    const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
+    if (!claimed) return { action: 'stale_after_reset' }
     await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
-    await markMariaGreetingSent(event.contactId, event.contactName)
     return { action: 'greeted' }
   }
 
@@ -75,6 +76,10 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
     setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null)
   }
   const result = await conversationService.processMessage(conversationId, event.text)
+  if (!await resetGenerationIsCurrent(event.contactId, control?.reset_at ?? null)) {
+    resetRespondConversationSession(event.contactId)
+    return { action: 'stale_after_reset' }
+  }
   await client.sendTextMessage(identifier, result.reply)
   return { action: 'replied' }
 }

@@ -127,14 +127,29 @@ export async function getContactAutomation(contactId: string) {
   return result.data as ContactAutomation | null
 }
 
-export async function markMariaGreetingSent(contactId: string, contactName?: string) {
+export async function markMariaGreetingSent(contactId: string, contactName: string | undefined, expectedResetAt: string | null) {
   const now = new Date().toISOString()
-  const result = await database().from('respond_contact_automation').upsert({
+  let query = database().from('respond_contact_automation').update({
+    contact_name: contactName ?? null, mode: 'maria', maria_greeting_sent_at: now,
+    last_action: 'maria_greeting_sent',
+  }).eq('respond_contact_id', contactId)
+  query = expectedResetAt === null ? query.is('reset_at', null) : query.eq('reset_at', expectedResetAt)
+  const result = await query.select('*').maybeSingle()
+  if (result.error) throw new DatabaseOperationError(result.error.message, result.error.code)
+  if (result.data) return result.data as ContactAutomation
+  const existing = await getContactAutomation(contactId)
+  if (existing) return null
+  const inserted = await database().from('respond_contact_automation').insert({
     respond_contact_id: contactId, contact_name: contactName ?? null, mode: 'maria',
     maria_greeting_sent_at: now, last_action: 'maria_greeting_sent',
-  }, { onConflict: 'respond_contact_id' }).select('*').single()
-  if (result.error) throw new DatabaseOperationError(result.error.message, result.error.code)
-  return result.data as ContactAutomation
+  }).select('*').single()
+  if (inserted.error) throw new DatabaseOperationError(inserted.error.message, inserted.error.code)
+  return inserted.data as ContactAutomation
+}
+
+export async function resetGenerationIsCurrent(contactId: string, expectedResetAt: string | null) {
+  const latest = await getContactAutomation(contactId)
+  return (latest?.reset_at ?? null) === expectedResetAt
 }
 
 export function mariaMayRespond(record: ContactAutomation | null, isUnassigned: boolean, now = Date.now()) {
