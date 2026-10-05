@@ -80,12 +80,17 @@ export async function bookAppointment(input: {
   })
   const callback = await getAgentCallbackNumber(mapping.hubspotUserId)
   const when = formatDateTime(input.slot, input.language)
-  const number = callback.digits.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3')
+  const number = callback.digits.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+  const agentFirstName = callback.agentName.trim().split(/\s+/)[0]!
   const confirmation = input.language === 'es'
-    ? `📲 Su videollamada informativa gratuita está programada para ${when}, hora ${input.slot.timezoneLabel}, con ${callback.agentName}. 🥰\n\n📲 Si necesita ayuda el día de su cita, nuestro especialista le llamará desde este número: ${number}\n\n⏰ Recuerde que la hora indicada corresponde a ${input.slot.timezoneLabel}.\n\n⚠️ Por favor, asegúrese de estar disponible para mantener su descuento. No podemos garantizar una cita para el mismo día si pierde la programada debido a la alta demanda en la clínica.`
-    : `📲 Your free informational video call is scheduled for ${when} (${input.slot.timezoneLabel}) with ${callback.agentName}. 🥰\n\n📲 If you need assistance on the day of your appointment, our specialist will call you from ${number}.\n\n⏰ Please remember the time shown is in ${input.slot.timezoneLabel}.\n\n⚠️ Please be available for your initial call to keep your discount. Due to high demand, we cannot guarantee same-day rescheduling if the appointment is missed.`
+    ? `📲 Su videollamada informativa gratuita está programada para ${when} (${input.slot.timezoneLabel}) con ${agentFirstName}. 🥰\n\n📲 Si necesita ayuda el día de su cita, nuestro especialista le llamará desde este número: ${number}.\n\n⏰ Recuerde que la hora indicada corresponde a ${input.slot.timezoneLabel}.\n\n⚠️ Por favor, asegúrese de estar disponible para mantener su descuento. No podemos garantizar una cita para el mismo día si pierde la programada debido a la alta demanda en la clínica.`
+    : input.language === 'pt'
+      ? `📲 Sua videochamada informativa gratuita está agendada para ${when} (${input.slot.timezoneLabel}) com ${agentFirstName}. 🥰\n\n📲 Se precisar de ajuda no dia da consulta, nosso especialista ligará deste número: ${number}.\n\n⏰ Lembre-se de que o horário mostrado está em ${input.slot.timezoneLabel}.\n\n⚠️ Esteja disponível para sua ligação inicial para manter o desconto. Devido à alta demanda, não podemos garantir o reagendamento para o mesmo dia se a consulta for perdida.`
+      : `📲 Your free informational video call is scheduled for ${when} (${input.slot.timezoneLabel}) with ${agentFirstName}. 🥰\n\n📲 If you need assistance on the day of your appointment, our specialist will call you from ${number}.\n\n⏰ Please remember the time shown is in ${input.slot.timezoneLabel}.\n\n⚠️ Please be available for your initial call to keep your discount. Due to high demand, we cannot guarantee same-day rescheduling if the appointment is missed.`
   const financing = input.language === 'es'
-    ? '😊 Si prefieres pagar en cuotas, tenemos opciones de financiamiento disponibles.\nPuedes hacer tu registro previo aquí si te resulta más cómodo antes de la consulta:\n\n🔗 https://linktr.ee/dharmapayments\n\n¡Así hacemos todo más ágil para ti! 💛'
-    : '😊 If you prefer to pay in installments, financing options are available. You can pre-register here before your consultation:\n\n🔗 https://linktr.ee/dharmapayments\n\nThis helps make everything quicker for you! 💛'
-  return { booking, meetingId, dealId: deal.id, confirmation: `${confirmation}\n\n${financing}` }
+    ? '😊 Si prefieres pagar en cuotas, tenemos opciones de financiamiento disponibles. Puedes hacer tu registro previo aquí antes de la consulta:\n\n🔗 https://linktr.ee/dharmapayments\n\n¡Así hacemos todo más ágil para ti! 💛'
+    : input.language === 'pt'
+      ? '😊 Se preferir pagar parcelado, temos opções de financiamento disponíveis. Você pode fazer seu pré-cadastro aqui antes da consulta:\n\n🔗 https://linktr.ee/dharmapayments\n\nIsso ajuda a tornar tudo mais rápido para você! 💛'
+      : '😊 If you prefer to pay in installments, financing options are available. You can pre-register here before your consultation:\n\n🔗 https://linktr.ee/dharmapayments\n\nThis helps make everything quicker for you! 💛'
+  return { booking, meetingId, dealId: deal.id, confirmation, financing }
 }

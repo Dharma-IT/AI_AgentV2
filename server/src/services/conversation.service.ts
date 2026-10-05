@@ -290,6 +290,7 @@ export class ConversationService {
           plan.bookingDetailRequest = null
           plan.bookingDetailsComplete = true
           plan.bookingConfirmation = result.confirmation
+          plan.bookingFinancingMessage = result.financing
         } catch {
           state.currentStage = 'booking_details'
           state.lastAskedQuestion = null

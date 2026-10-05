@@ -85,6 +85,19 @@ export class RespondClient {
     return readJson('Respond.io', response)
   }
 
+  async updateContactCustomFields(identifier: string, customFields: Record<string, string>): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}`,
+      {
+        method: 'PUT', headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          custom_fields: Object.entries(customFields).map(([name, value]) => ({ name, value })),
+        }),
+      },
+    )
+    return readJson('Respond.io', response)
+  }
+
   async searchContacts(search: string, limit = 25): Promise<RespondContact[]> {
     const response = await this.fetchImplementation(
       `${RESPOND_BASE_URL}/contact/list?limit=${limit}`,

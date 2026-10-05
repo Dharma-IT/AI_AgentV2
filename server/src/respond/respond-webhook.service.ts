@@ -1,9 +1,10 @@
 import { conversationService, CustomerMessageNotUnderstoodError } from '../services/conversation.service.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
 import { isRespondChannelEnabled } from '../admin/respond-channel.service.js'
-import { getContactAutomation, mariaMayRespond, markMariaGreetingSent, resetGenerationIsCurrent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
+import { getContactAutomation, lockBookedContact, mariaMayRespond, markMariaGreetingSent, resetGenerationIsCurrent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
 import { initialGreetingForLanguage } from '../services/conversation.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from './respond-session.service.js'
+import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/user-mapping.js'
 
 type Json = Record<string, unknown>
 
@@ -122,5 +123,25 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
     await client.updateContactLanguage(identifier, detectedLanguage)
   }
   await client.sendTextMessage(identifier, result.reply)
+  if (result.plan.bookingDetailsComplete && result.plan.bookingFinancingMessage) {
+    await client.sendTextMessage(identifier, result.plan.bookingFinancingMessage)
+    const slot = result.state.selectedAppointmentSlot
+    const owner = slot ? findEligibleUserByHubSpotUserId(slot.hubspotUserId) : undefined
+    if (!slot || !owner) throw new Error('Completed booking has no eligible Respond.io owner')
+    await lockBookedContact({
+      contactId: event.contactId,
+      contactName: event.contactName,
+      respondUserId: owner.respondUserId,
+      ownerName: owner.canonicalName,
+      language: result.state.preferredLanguage === 'es' || result.state.preferredLanguage === 'pt' ? result.state.preferredLanguage : 'en',
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    })
+    await client.assignConversation(identifier, owner.respondUserId)
+    await client.updateContactCustomFields(identifier, { lead_status: 'Evaluation Scheduled' })
+    await client.setConversationStatus(identifier, 'close')
+    resetRespondConversationSession(event.contactId)
+    return { action: 'booking_completed' }
+  }
   return { action: 'replied' }
 }

@@ -102,6 +102,7 @@ export type ResponsePlan = {
   bookingDetailRequest?: 'phone' | 'full_name' | null
   bookingDetailsComplete?: boolean
   bookingConfirmation?: string | null
+  bookingFinancingMessage?: string | null
   bookingFailed?: boolean
   appointmentAvailabilityFailed?: boolean
 }
