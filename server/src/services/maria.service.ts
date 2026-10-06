@@ -64,6 +64,15 @@ Use the complete message rather than relying on greetings or isolated keywords.`
   return response.output_parsed.detectedLanguage
 }
 
+export function formatAppointmentStartTime12Hour(startTime: string, timezone: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(Date.parse(startTime))
+}
+
 export async function analyzeCustomerMessage(
   message: string,
   state: ConversationState,
@@ -176,6 +185,7 @@ Do not mention internal stages, database tables, embeddings, retrieval, configur
           : null,
         verifiedAppointmentSlots: plan.appointmentSlots?.map((slot) => ({
           startTime: slot.startTime,
+          displayStartTime: formatAppointmentStartTime12Hour(slot.startTime, slot.timezone),
           timezone: slot.timezone,
           timezoneLabel: slot.timezoneLabel,
         })) ?? [],
@@ -187,7 +197,7 @@ Do not mention internal stages, database tables, embeddings, retrieval, configur
         schedulingConstraint: plan.selectedAppointmentSlot
           ? 'The customer selected this exact verified slot. Acknowledge it once and ask for their phone number so the booking can be completed. Do not ask them to confirm the appointment time again. Do not claim it is booked yet.'
           : plan.appointmentSlots?.length
-          ? 'Offer exactly these verified slots, preserving their complete calendar date, month name, day, four-digit year, start time, and timezone label in every option. Display only the appointment start time; never display or infer an end time or a time range. Never omit the month or year, including in Spanish or Portuguese. Label the choices A and B when two are present, never 1 and 2. Invite the customer to reply with A, B, the typed time, first/second, or equivalent natural wording. Do not ask the customer for a general preference. If the customer explicitly selects an offered time, treat it as their selection and do not ask for confirmation. Do not mention the assigned agent yet and do not claim the appointment is booked.'
+          ? 'Offer exactly these verified slots, preserving their complete calendar date, month name, day, four-digit year, start time, and timezone label in every option. In every language, copy displayStartTime exactly and use the 12-hour clock with AM or PM; never convert it to 24-hour time. Display only the appointment start time; never display or infer an end time or a time range. Never omit the month or year, including in Spanish or Portuguese. Label the choices A and B when two are present, never 1 and 2. Invite the customer to reply with A, B, the typed time, first/second, or equivalent natural wording. Do not ask the customer for a general preference. If the customer explicitly selects an offered time, treat it as their selection and do not ask for confirmation. Do not mention the assigned agent yet and do not claim the appointment is booked.'
           : plan.appointmentAvailabilityFailed
             ? 'Live availability could not be verified. Apologize briefly and say clinic staff must confirm a time. Never invent or offer a slot.'
             : 'Do not offer or invent appointment times unless verifiedAppointmentSlots is populated. Never claim an appointment is booked.',
