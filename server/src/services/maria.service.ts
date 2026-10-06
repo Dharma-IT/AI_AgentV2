@@ -9,6 +9,7 @@ import type {
 import { openai } from '../lib/openai.js'
 import type { KnowledgeContext } from '../knowledge/knowledge.types.js'
 import { recognizeUSLocation } from '../location/us-city-recognition.js'
+import { normalizeLocationText, officialStateName } from '../location/us-state-recognition.js'
 
 const messageAnalysisSchema = z.object({
   detectedLanguage: z.enum(['en', 'es', 'pt', 'other']),
@@ -42,7 +43,7 @@ const languageDetectionSchema = z.object({
 const ANALYSIS_INSTRUCTIONS = `Extract information explicitly present in the latest customer message.
 Return US states as uppercase two-letter postal codes. Do not infer a state from a city unless unambiguous.
 A weight goal is a desired weight, pounds to lose, or a general goal such as losing weight.
-Identify every question topic. Detect the language of the latest message.
+Identify every question topic. Detect the language of the latest message. Return other for language-neutral replies such as a standalone proper name, US state or city, phone number, appointment option, or numeric time; these replies must not change the conversation language.
 Set isUnderstandable to false only when the latest customer text is genuinely unintelligible or meaningless. Short but actionable replies such as A, B, first, second, yes, no, a time, a date, a phone number, a person's name, or a greeting are understandable.
 Capture scheduling preferences, but never interpret a vague answer as a confirmed booking.`
 
@@ -73,6 +74,16 @@ export function formatAppointmentStartTime12Hour(startTime: string, timezone: st
   }).format(Date.parse(startTime))
 }
 
+export function isStandaloneLanguageNeutralLocation(message: string) {
+  const recognition = recognizeUSLocation(message)
+  const normalizedMessage = normalizeLocationText(message)
+  if (!normalizedMessage || !recognition.stateCode) return false
+  const officialState = officialStateName(recognition.stateCode)
+  if (officialState && normalizedMessage === normalizeLocationText(officialState)) return true
+  if (normalizedMessage === recognition.stateCode.toLowerCase()) return true
+  return Boolean(recognition.city && normalizedMessage === normalizeLocationText(recognition.city))
+}
+
 export async function analyzeCustomerMessage(
   message: string,
   state: ConversationState,
@@ -99,6 +110,7 @@ Latest customer message: ${message}`,
   const locationAttempted = /\b(?:live|living|located|staying|city|state|from|actually|vivo|moro|estoy|cidade|estado)\b/i.test(message)
   return {
     ...response.output_parsed,
+    detectedLanguage: isStandaloneLanguageNeutralLocation(message) ? 'other' : response.output_parsed.detectedLanguage,
     customerWeightGoal: isGreetingOnly(message) ? null : response.output_parsed.customerWeightGoal,
     customerStateCode: recognition.stateCode,
     customerCity: recognition.city ?? null,
