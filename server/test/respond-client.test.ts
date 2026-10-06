@@ -19,3 +19,24 @@ test('lists Respond.io workspace channels with their stable IDs and sources', as
     { id: 556661, source: 'facebook' },
   ])
 })
+
+test('sends images and videos as Respond.io attachment messages', async () => {
+  const requests: Array<{ url: string; body: unknown }> = []
+  const client = new RespondClient('token', (async (input, init) => {
+    requests.push({ url: String(input), body: JSON.parse(String(init?.body)) })
+    return new Response(JSON.stringify({ id: 1 }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }) as typeof fetch)
+
+  await client.sendAttachmentMessage('id:42', {
+    type: 'image', url: 'https://example.com/welcome.jpg', mimeType: 'image/jpeg', fileName: 'welcome.jpg', description: 'Welcome',
+  })
+  await client.sendAttachmentMessage('id:42', {
+    type: 'video', url: 'https://example.com/evaluation.mp4', mimeType: 'video/mp4', fileName: 'evaluation.mp4',
+  })
+
+  assert.match(requests[0]!.url, /\/contact\/id%3A42\/message$/)
+  assert.deepEqual(requests.map(({ body }) => body), [
+    { message: { type: 'attachment', attachment: { type: 'image', url: 'https://example.com/welcome.jpg', mimeType: 'image/jpeg', fileName: 'welcome.jpg', description: 'Welcome' } } },
+    { message: { type: 'attachment', attachment: { type: 'video', url: 'https://example.com/evaluation.mp4', mimeType: 'video/mp4', fileName: 'evaluation.mp4' } } },
+  ])
+})

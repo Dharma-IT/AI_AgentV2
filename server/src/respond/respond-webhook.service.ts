@@ -5,6 +5,7 @@ import { getContactAutomation, lockBookedContact, mariaMayRespond, markMariaGree
 import { initialGreetingForLanguage } from '../services/conversation.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from './respond-session.service.js'
 import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/user-mapping.js'
+import { bookingVideo, sendMediaWithoutBlockingText, welcomeImage } from './respond-media.js'
 
 type Json = Record<string, unknown>
 
@@ -96,6 +97,7 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
     const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
     if (!claimed) return { action: 'stale_after_reset' }
     if (!liveContact.language) await client.updateContactLanguage(identifier, language)
+    await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
     await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
     return { action: 'greeted' }
   }
@@ -121,6 +123,9 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   const detectedLanguage = result.state.preferredLanguage
   if (!liveContact.language && (detectedLanguage === 'en' || detectedLanguage === 'es' || detectedLanguage === 'pt')) {
     await client.updateContactLanguage(identifier, detectedLanguage)
+  }
+  if (result.plan.bookingDetailsComplete) {
+    await sendMediaWithoutBlockingText(client, identifier, bookingVideo)
   }
   await client.sendTextMessage(identifier, result.reply)
   if (result.plan.bookingDetailsComplete && result.plan.bookingFinancingMessage) {

@@ -34,6 +34,14 @@ export interface RespondContact {
   assignee: { id: number; firstName: string; lastName: string; email: string } | null
 }
 
+export interface RespondAttachment {
+  type: 'image' | 'video'
+  url: string
+  mimeType: string
+  fileName: string
+  description?: string
+}
+
 interface RespondPage<T> {
   items: T[]
   pagination?: { next?: string | null }
@@ -141,6 +149,18 @@ export class RespondClient {
     const response = await this.fetchImplementation(
       `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/message`,
       { method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message: { type: 'text', text } }) },
+    )
+    return readJson('Respond.io', response)
+  }
+
+  async sendAttachmentMessage(identifier: string, attachment: RespondAttachment): Promise<unknown> {
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/message`,
+      {
+        method: 'POST',
+        headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: { type: 'attachment', attachment } }),
+      },
     )
     return readJson('Respond.io', response)
   }

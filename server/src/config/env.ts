@@ -13,6 +13,8 @@ const envSchema = z.object({
   SUPABASE_DB_PASSWORD: z.string().optional().default(''),
   RESPOND_API_TOKEN: z.string().optional().default(''),
   RESPOND_WEBHOOK_SIGNING_KEY: z.string().optional().default(''),
+  MARIA_WELCOME_IMAGE_URL: z.string().url().optional().or(z.literal('')),
+  MARIA_BOOKING_VIDEO_URL: z.string().url().optional().or(z.literal('')),
   HUBSPOT_PRIVATE_APP_TOKEN: z.string().optional().default(''),
   AIRCALL_API_ID: z.string().optional().default(''),
   AIRCALL_API_TOKEN: z.string().optional().default(''),
