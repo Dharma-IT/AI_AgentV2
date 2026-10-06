@@ -84,6 +84,11 @@ export function isStandaloneLanguageNeutralLocation(message: string) {
   return Boolean(recognition.city && normalizedMessage === normalizeLocationText(recognition.city))
 }
 
+export function isLocationAttempt(message: string) {
+  return /\b(?:live|living|located|staying|city|state|from|actually|vivo|moro|cidade|estado)\b/i.test(message)
+    || /\bestoy\s+en\b/i.test(message)
+}
+
 export async function analyzeCustomerMessage(
   message: string,
   state: ConversationState,
@@ -107,7 +112,7 @@ Latest customer message: ${message}`,
   }
 
   const recognition = recognizeUSLocation(message)
-  const locationAttempted = /\b(?:live|living|located|staying|city|state|from|actually|vivo|moro|estoy|cidade|estado)\b/i.test(message)
+  const locationAttempted = isLocationAttempt(message)
   return {
     ...response.output_parsed,
     detectedLanguage: isStandaloneLanguageNeutralLocation(message) ? 'other' : response.output_parsed.detectedLanguage,
