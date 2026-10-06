@@ -6,6 +6,7 @@ import { initialGreetingForLanguage } from '../services/conversation.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from './respond-session.service.js'
 import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/user-mapping.js'
 import { bookingVideo, sendMediaWithoutBlockingText, welcomeImage } from './respond-media.js'
+import { detectCustomerLanguage } from '../services/maria.service.js'
 
 type Json = Record<string, unknown>
 
@@ -93,10 +94,15 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!mariaMayRespond(control, true)) return { action: 'locked' }
 
   if (!control?.maria_greeting_sent_at) {
-    const language = inferredLanguage(liveContact.language, event.text)
+    const detectedLanguage = await detectCustomerLanguage(event.text)
+    const language = detectedLanguage === 'other'
+      ? liveContact.language === 'es' || liveContact.language === 'pt' || liveContact.language === 'en'
+        ? liveContact.language
+        : 'en'
+      : detectedLanguage
     const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
     if (!claimed) return { action: 'stale_after_reset' }
-    if (!liveContact.language) await client.updateContactLanguage(identifier, language)
+    if (liveContact.language !== language) await client.updateContactLanguage(identifier, language)
     await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
     await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
     return { action: 'greeted' }
@@ -121,7 +127,7 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
     return { action: 'stale_after_reset' }
   }
   const detectedLanguage = result.state.preferredLanguage
-  if (!liveContact.language && (detectedLanguage === 'en' || detectedLanguage === 'es' || detectedLanguage === 'pt')) {
+  if (liveContact.language !== detectedLanguage && (detectedLanguage === 'en' || detectedLanguage === 'es' || detectedLanguage === 'pt')) {
     await client.updateContactLanguage(identifier, detectedLanguage)
   }
   if (result.plan.bookingDetailsComplete) {

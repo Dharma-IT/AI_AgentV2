@@ -35,6 +35,10 @@ const messageAnalysisSchema = z.object({
   appointmentPreference: z.string().nullable(),
 })
 
+const languageDetectionSchema = z.object({
+  detectedLanguage: z.enum(['en', 'es', 'pt', 'other']),
+})
+
 const ANALYSIS_INSTRUCTIONS = `Extract information explicitly present in the latest customer message.
 Return US states as uppercase two-letter postal codes. Do not infer a state from a city unless unambiguous.
 A weight goal is a desired weight, pounds to lose, or a general goal such as losing weight.
@@ -44,6 +48,20 @@ Capture scheduling preferences, but never interpret a vague answer as a confirme
 
 export function isGreetingOnly(message: string) {
   return /^\s*[¡¿]*(?:hello|hi|hey|hola|buenas|buenos días|buenas tardes|olá|oi|bom dia|boa tarde)[!.?¡¿\s]*$/iu.test(message)
+}
+
+export async function detectCustomerLanguage(message: string): Promise<'en' | 'es' | 'pt' | 'other'> {
+  const response = await openai.responses.parse({
+    model: env.OPENAI_MODEL,
+    instructions: `Detect the language in which the customer wrote the message.
+Return en for English, es for Spanish, pt for Portuguese, and other only when the message is in another language or contains too little meaningful language to identify it.
+Use the complete message rather than relying on greetings or isolated keywords.`,
+    input: message,
+    text: { format: zodTextFormat(languageDetectionSchema, 'customer_language_detection') },
+    store: false,
+  })
+  if (!response.output_parsed) throw new Error('Unable to detect the customer language')
+  return response.output_parsed.detectedLanguage
 }
 
 export async function analyzeCustomerMessage(
