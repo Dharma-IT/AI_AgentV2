@@ -8,6 +8,7 @@ import { BusinessPage } from './admin/pages/BusinessPage'
 import { KnowledgePage } from './admin/pages/KnowledgePage'
 import { KnowledgeHealthPage } from './admin/pages/KnowledgeHealthPage'
 import { RespondChannelSettingsPage } from './admin/pages/RespondChannelSettingsPage'
+import { ConversationReportPage } from './admin/pages/ConversationReportPage'
 
 export const router = createBrowserRouter([
   { path: '/', element: <App /> },
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
     element: <AdminLayout />,
     children: [
       { index: true, element: <OverviewPage /> },
+      { path: 'conversations', element: <ConversationReportPage /> },
       { path: 'products', element: <ManagementPage kind="products" /> },
       { path: 'pricing', element: <ManagementPage kind="pricing-packages" /> },
       { path: 'promotions', element: <ManagementPage kind="promotions" /> },

@@ -2,11 +2,12 @@ import {
   BadgeDollarSign, BookOpen, Boxes, CircleDollarSign, ClipboardList,
   CreditCard, FileText, Gauge, MapPinned, MessageCircleQuestion,
   MessagesSquare, Settings, ShieldCheck, Building2, ScrollText,
-  HeartPulse,
+  HeartPulse, ChartNoAxesCombined,
 } from 'lucide-react'
 
 export const adminNavigation = [
   { path: '/admin', label: 'Dashboard Overview', icon: Gauge },
+  { path: '/admin/conversations', label: 'Conversation Report', icon: ChartNoAxesCombined },
   { path: '/admin/products', label: 'Products & Treatments', icon: Boxes },
   { path: '/admin/pricing', label: 'Pricing & Packages', icon: CircleDollarSign },
   { path: '/admin/promotions', label: 'Promotions', icon: BadgeDollarSign },

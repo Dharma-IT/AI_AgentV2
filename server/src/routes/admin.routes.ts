@@ -10,11 +10,23 @@ import { respondChannelIdSchema, respondChannelToggleSchema, respondSourceSchema
 import { setRespondChannelEnabled, setRespondProviderEnabled, synchronizeRespondChannels } from '../admin/respond-channel.service.js'
 import { resetContactToMaria, searchContactControls } from '../respond/contact-automation.service.js'
 import { z } from 'zod'
+import { requestConversationReport } from '../admin/conversation-report.service.js'
 
 export const adminRouter = Router()
 
 adminRouter.use(requireAdmin)
 adminRouter.get('/status', (_request, response) => response.json({ authenticated: true, userId: response.locals.user.id, role: response.locals.adminRole }))
+adminRouter.get('/conversation-report', async (request, response, next) => {
+  try {
+    const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+    const { from, to } = z.object({ from: date, to: date }).parse(request.query)
+    if (from > to) return response.status(400).json({ error: 'From date must not be after To date' })
+    const result = requestConversationReport(from, to)
+    if (result.status === 'pending') return response.status(202).json({ status: 'pending' })
+    if (result.status === 'failed') return response.status(502).json({ error: result.error })
+    response.json({ data: result.report })
+  } catch (error) { next(error) }
+})
 adminRouter.get('/knowledge-integration/health', async (_request, response, next) => { try { response.json(await knowledgeHealth()) } catch (error) { next(error) } })
 adminRouter.post('/knowledge-integration/retry', async (request, response, next) => { try { const { limit } = retryEmbeddingsSchema.parse(request.body); response.json({ results: await retryFailedEmbeddings(limit) }) } catch (error) { next(error) } })
 adminRouter.get('/respond-channels', async (_request, response, next) => {

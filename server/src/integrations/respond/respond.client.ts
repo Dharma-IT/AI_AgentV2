@@ -47,6 +47,16 @@ interface RespondPage<T> {
   pagination?: { next?: string | null }
 }
 
+export interface RespondMessage {
+  messageId: number
+  contactId: number
+  channelId: number
+  traffic: 'incoming' | 'outgoing'
+  message: { type: string; text?: string; attachment?: { type?: string } }
+  sender?: { source?: string; userId?: number | null }
+  status?: Array<{ value: string; timestamp?: number }>
+}
+
 export class RespondClient {
   constructor(
     private readonly token = env.RESPOND_API_TOKEN,
@@ -115,6 +125,26 @@ export class RespondClient {
       },
     )
     return (await readJson<RespondPage<RespondContact>>('Respond.io', response)).items
+  }
+
+  async listContactsPage(limit = 100, cursorId?: string): Promise<RespondPage<RespondContact>> {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursorId) query.set('cursorId', cursorId)
+    const response = await this.fetchImplementation(`${RESPOND_BASE_URL}/contact/list?${query}`, {
+      method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ search: '', timezone: 'America/New_York', filter: { $and: [] } }),
+    })
+    return readJson<RespondPage<RespondContact>>('Respond.io', response)
+  }
+
+  async listMessagesPage(identifier: string, limit = 100, cursorId?: string): Promise<RespondPage<RespondMessage>> {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursorId) query.set('cursorId', cursorId)
+    const response = await this.fetchImplementation(
+      `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/message/list?${query}`,
+      { headers: this.headers() },
+    )
+    return readJson<RespondPage<RespondMessage>>('Respond.io', response)
   }
 
   async assignConversation(identifier: string, respondUserId: number): Promise<unknown> {
