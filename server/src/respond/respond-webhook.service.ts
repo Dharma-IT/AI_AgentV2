@@ -10,6 +10,20 @@ import { detectCustomerLanguage } from '../services/maria.service.js'
 
 type Json = Record<string, unknown>
 
+export const RESPOND_WORKFLOW_GRACE_PERIOD_MS = 20_000
+
+type Wait = (milliseconds: number) => Promise<void>
+
+const wait: Wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+
+export async function contactAfterWorkflowGracePeriod<T>(
+  loadContact: () => Promise<T>,
+  waitForWorkflows: Wait = wait,
+) {
+  await waitForWorkflows(RESPOND_WORKFLOW_GRACE_PERIOD_MS)
+  return loadContact()
+}
+
 function object(value: unknown): Json | null { return value && typeof value === 'object' && !Array.isArray(value) ? value as Json : null }
 function first(...values: unknown[]) { return values.find((value) => value !== undefined && value !== null) }
 function numeric(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null }
@@ -68,7 +82,11 @@ export function inferredLanguage(contactLanguage: string | null | undefined, tex
   return 'en'
 }
 
-export async function processIncomingWebhook(payload: unknown, client = new RespondClient()) {
+export async function processIncomingWebhook(
+  payload: unknown,
+  client = new RespondClient(),
+  waitForWorkflows: Wait = wait,
+) {
   const event = parseIncomingWebhook(payload)
   if (!event.contactId || !event.channelId) throw new Error('Respond webhook is missing contact or channel ID')
   if (!await isRespondChannelEnabled(event.channelId)) return { action: 'channel_disabled' }
@@ -81,7 +99,14 @@ export async function processIncomingWebhook(payload: unknown, client = new Resp
   if (!event.text.trim() && !event.hasTransferableMedia) return { action: 'empty_event_ignored' }
 
   const identifier = `id:${event.contactId}`
-  const liveContact = await client.getContact(identifier) as { assignee?: unknown; firstName?: string; lastName?: string; language?: string | null }
+
+  // Respond.io routing, language, lead-status, and bot workflows run
+  // asynchronously after an incoming message. Give them time to finish, then
+  // read the contact again so Maria does not race an assignment or bot reply.
+  const liveContact = await contactAfterWorkflowGracePeriod(
+    () => client.getContact(identifier),
+    waitForWorkflows,
+  ) as { assignee?: unknown; firstName?: string; lastName?: string; language?: string | null }
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
   if (!isUnassigned) return { action: 'human_assigned' }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder } from '../src/respond/respond-webhook.service.js'
+import { contactAfterWorkflowGracePeriod, inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_WORKFLOW_GRACE_PERIOD_MS } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -14,6 +14,27 @@ describe('Respond incoming webhook parsing', () => {
       contactId: '552034219', contactName: 'Jeuz Bas', channelId: 333332,
       messageId: '99', messageType: 'text', text: 'AI Agent Test', hasAttachments: false, hasTransferableMedia: false, isUnassigned: true,
     })
+  })
+})
+
+describe('Respond workflow grace period', () => {
+  it('waits 20 seconds before reading the live assignment state', async () => {
+    const calls: string[] = []
+    let waitedFor = 0
+    const contact = await contactAfterWorkflowGracePeriod(
+      async () => {
+        calls.push('getContact')
+        return { assignee: { id: 123 }, language: 'es' }
+      },
+      async (milliseconds) => {
+        calls.push('wait')
+        waitedFor = milliseconds
+      },
+    )
+
+    assert.equal(waitedFor, RESPOND_WORKFLOW_GRACE_PERIOD_MS)
+    assert.deepEqual(calls, ['wait', 'getContact'])
+    assert.deepEqual(contact, { assignee: { id: 123 }, language: 'es' })
   })
 })
 
