@@ -10,17 +10,18 @@ import type { AppointmentSlot } from '../domain/conversation.js'
 import { bookAppointment } from '../appointments/booking.service.js'
 
 function selectedOfferedSlot(message: string, analysis: MessageAnalysis, slots: AppointmentSlot[]) {
-  if (!['accepts_offer', 'specific_time'].includes(analysis.appointmentIntent) || slots.length === 0) return null
+  const bookableSlots = slots.filter((slot) => appointmentSlotIsBookable(slot))
+  if (!['accepts_offer', 'specific_time'].includes(analysis.appointmentIntent) || bookableSlots.length === 0) return null
   const normalized = message.toLowerCase()
-  if (/^\s*(?:a|#?1)\s*$/.test(normalized) || /\b(option|choice|number|slot|letter)\s*(?:a|#?1)\b/.test(normalized) || /\b(first|1st|one|earlier|primero|primeiro|la primera|a primeira)\b/.test(normalized)) return slots[0] ?? null
-  if (/^\s*(?:b|#?2)\s*$/.test(normalized) || /\b(option|choice|number|slot|letter)\s*(?:b|#?2)\b/.test(normalized) || /\b(second|2nd|two|later|segundo|la segunda|a segunda)\b/.test(normalized)) return slots[1] ?? null
+  if (/^\s*(?:a|#?1)\s*$/.test(normalized) || /\b(option|choice|number|slot|letter)\s*(?:a|#?1)\b/.test(normalized) || /\b(first|1st|one|earlier|primero|primeiro|la primera|a primeira)\b/.test(normalized)) return bookableSlots[0] ?? null
+  if (/^\s*(?:b|#?2)\s*$/.test(normalized) || /\b(option|choice|number|slot|letter)\s*(?:b|#?2)\b/.test(normalized) || /\b(second|2nd|two|later|segundo|la segunda|a segunda)\b/.test(normalized)) return bookableSlots[1] ?? null
   const period = /\b(morning|mañana|manhã)\b/.test(normalized)
     ? 'morning'
     : /\b(afternoon|tarde)\b/.test(normalized)
       ? 'afternoon'
       : null
   if (period) {
-    const matchingSlots = slots.filter((slot) => {
+    const matchingSlots = bookableSlots.filter((slot) => {
       const hour = Number(new Intl.DateTimeFormat('en-US', {
         timeZone: slot.timezone,
         hour: 'numeric',
@@ -35,7 +36,7 @@ function selectedOfferedSlot(message: string, analysis: MessageAnalysis, slots: 
     let requestedHour = Number(time[1]) % 12
     if (time[3] === 'pm') requestedHour += 12
     const requestedMinute = Number(time[2] ?? 0)
-    const matchingSlots = slots.filter((slot) => {
+    const matchingSlots = bookableSlots.filter((slot) => {
       const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: slot.timezone,
         hour: 'numeric',
@@ -47,8 +48,12 @@ function selectedOfferedSlot(message: string, analysis: MessageAnalysis, slots: 
     })
     if (matchingSlots.length === 1) return matchingSlots[0]
   }
-  if (slots.length === 1 && /\b(yes|yeah|yep|confirm|correct|si|sí|sim|ok|okay)\b/.test(normalized)) return slots[0]
+  if (bookableSlots.length === 1 && /\b(yes|yeah|yep|confirm|correct|si|sí|sim|ok|okay)\b/.test(normalized)) return bookableSlots[0]
   return null
+}
+
+export function appointmentSlotIsBookable(slot: AppointmentSlot, now = Date.now()) {
+  return Date.parse(slot.startTime) > now
 }
 
 function normalizeUsPhone(message: string) {
@@ -142,6 +147,15 @@ export class ConversationService {
   async processMessage(conversationId: string, message: string) {
     const state = this.dependencies.repository.findById(conversationId)
     if (!state) throw new ConversationNotFoundError('Conversation not found')
+
+    if (state.selectedAppointmentSlot && !appointmentSlotIsBookable(state.selectedAppointmentSlot)) {
+      state.selectedAppointmentSlot = null
+      state.selectedAppointmentPreference = null
+      state.offeredAppointmentSlots = []
+      state.currentStage = 'appointment'
+      state.appointmentStageActive = true
+      state.lastAskedQuestion = 'appointment'
+    }
 
     const analysis = await this.dependencies.analyze(message, state)
     if (analysis.isUnderstandable === false) {

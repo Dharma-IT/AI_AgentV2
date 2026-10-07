@@ -32,6 +32,17 @@ export function incomingEventIsStillLatest(messages: RespondMessage[], incomingM
   return !latest || String(latest.messageId) === incomingMessageId
 }
 
+export function latestIncomingTextBurst(messages: RespondMessage[], incomingMessageId: string, fallbackText: string) {
+  const ordered = [...messages].sort((a, b) => b.messageId - a.messageId)
+  if (ordered[0] && String(ordered[0].messageId) !== incomingMessageId) return null
+  const texts: string[] = []
+  for (const message of ordered) {
+    if (message.traffic === 'outgoing') break
+    if (message.message.type === 'text' && message.message.text?.trim()) texts.push(message.message.text.trim())
+  }
+  return texts.reverse().join('\n') || fallbackText
+}
+
 function object(value: unknown): Json | null { return value && typeof value === 'object' && !Array.isArray(value) ? value as Json : null }
 function first(...values: unknown[]) { return values.find((value) => value !== undefined && value !== null) }
 function numeric(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null }
@@ -121,6 +132,8 @@ export async function processIncomingWebhook(
   if (!incomingEventIsStillLatest(recentMessages.items, event.messageId)) {
     return { action: 'superseded_during_grace_period' }
   }
+  const customerText = latestIncomingTextBurst(recentMessages.items, event.messageId, event.text)
+  if (customerText === null) return { action: 'superseded_during_grace_period' }
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
   if (!isUnassigned) return { action: 'human_assigned' }
@@ -133,7 +146,7 @@ export async function processIncomingWebhook(
   if (!mariaMayRespond(control, true)) return { action: 'locked' }
 
   if (!control?.maria_greeting_sent_at) {
-    const detectedLanguage = await detectCustomerLanguage(event.text)
+    const detectedLanguage = await detectCustomerLanguage(customerText)
     const language = detectedLanguage === 'other'
       ? liveContact.language === 'es' || liveContact.language === 'pt' || liveContact.language === 'en'
         ? liveContact.language
@@ -151,13 +164,13 @@ export async function processIncomingWebhook(
   if (!conversationId) {
     const startingLanguage = liveContact.language === 'es' || liveContact.language === 'pt' || liveContact.language === 'en'
       ? liveContact.language
-      : inferredLanguage(null, event.text)
+      : inferredLanguage(null, customerText)
     conversationId = conversationService.createConversation(startingLanguage).id
     setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null)
   }
   let result
   try {
-    result = await conversationService.processMessage(conversationId, event.text)
+    result = await conversationService.processMessage(conversationId, customerText)
   } catch (cause) {
     if (!(cause instanceof CustomerMessageNotUnderstoodError)) throw cause
     resetRespondConversationSession(event.contactId)

@@ -53,7 +53,7 @@ test('eligible direct state and city continue the consultation flow', async () =
 
 test('choosing an offered slot advances to phone collection without another confirmation', async () => {
   const repository = new InMemoryConversationRepository()
-  const slot = { startTime: '2026-10-06T14:40:00.000Z', endTime: '2026-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' }
+  const slot = { startTime: '2099-10-06T14:40:00.000Z', endTime: '2099-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' }
   const service = new ConversationService({
     repository,
     analyze: async (message: string): Promise<MessageAnalysis> => message.includes('first')
@@ -90,7 +90,7 @@ test('choosing an offered slot advances to phone collection without another conf
 
 test('typing an offered local time selects it without reconfirmation', async () => {
   const repository = new InMemoryConversationRepository()
-  const slot = { startTime: '2026-10-06T14:40:00.000Z', endTime: '2026-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' }
+  const slot = { startTime: '2099-10-06T14:40:00.000Z', endTime: '2099-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' }
   const service = new ConversationService({
     repository,
     analyze: async (message: string): Promise<MessageAnalysis> => message.includes('Florida')
@@ -112,8 +112,8 @@ test('typing an offered local time selects it without reconfirmation', async () 
 test('replying with choice B selects the corresponding offered slot', async () => {
   const repository = new InMemoryConversationRepository()
   const slots = [
-    { startTime: '2026-10-06T14:40:00.000Z', endTime: '2026-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' },
-    { startTime: '2026-10-06T16:20:00.000Z', endTime: '2026-10-06T16:40:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 79527842, meetingLinkSlug: 'brayam-zuluaga' },
+    { startTime: '2099-10-06T14:40:00.000Z', endTime: '2099-10-06T15:00:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 77394932, meetingLinkSlug: 'arles-martinez' },
+    { startTime: '2099-10-06T16:20:00.000Z', endTime: '2099-10-06T16:40:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Eastern Time', hubspotUserId: 79527842, meetingLinkSlug: 'brayam-zuluaga' },
   ]
   const service = new ConversationService({
     repository,

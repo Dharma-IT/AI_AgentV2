@@ -17,7 +17,7 @@ function formatDateTime(slot: AppointmentSlot, language: PreferredLanguage) {
   const locale = language === 'es' ? 'es-US' : language === 'pt' ? 'pt-US' : 'en-US'
   return new Intl.DateTimeFormat(locale, {
     timeZone: slot.timezone,
-    month: '2-digit', day: '2-digit', year: 'numeric',
+    month: 'long', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit', hour12: true,
   }).format(Date.parse(slot.startTime))
 }
@@ -80,7 +80,7 @@ export async function bookAppointment(input: {
   })
   const callback = await getAgentCallbackNumber(mapping.hubspotUserId)
   const when = formatDateTime(input.slot, input.language)
-  const number = callback.digits.replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+  const number = callback.digits.trim().replace(/^\+1/, '').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
   const agentFirstName = callback.agentName.trim().split(/\s+/)[0]!
   const confirmation = input.language === 'es'
     ? `📲 Su videollamada informativa gratuita está programada para ${when} (${input.slot.timezoneLabel}) con ${agentFirstName}. 🥰\n\n📲 Si necesita ayuda el día de su cita, nuestro especialista le llamará desde este número: ${number}.\n\n⏰ Recuerde que la hora indicada corresponde a ${input.slot.timezoneLabel}.\n\n⚠️ Por favor, asegúrese de estar disponible para mantener su descuento. No podemos garantizar una cita para el mismo día si pierde la programada debido a la alta demanda en la clínica.`

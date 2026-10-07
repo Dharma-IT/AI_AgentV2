@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ConversationState, MessageAnalysis } from '../src/domain/conversation.js'
 import { applyMessageAnalysis } from '../src/services/conversation-engine.js'
+import { appointmentSlotIsBookable } from '../src/services/conversation.service.js'
 
 function state(): ConversationState {
   const now = new Date().toISOString()
@@ -157,4 +158,10 @@ test('ambiguous state recognition is never stored as confirmed and requests clar
   assert.equal(conversation.preferredLanguage, 'pt')
   assert.equal(plan.clarifyState, true)
   assert.equal(plan.nextQuestion, 'state')
+})
+
+test('expired appointment slots are not bookable', () => {
+  const slot = { startTime: '2026-10-06T19:00:00.000Z', endTime: '2026-10-06T19:20:00.000Z', timezone: 'America/Los_Angeles', timezoneLabel: 'Pacific Time', hubspotUserId: 1, meetingLinkSlug: 'test' }
+  assert.equal(appointmentSlotIsBookable(slot, Date.parse('2026-10-07T00:00:00.000Z')), false)
+  assert.equal(appointmentSlotIsBookable(slot, Date.parse('2026-10-06T18:59:59.000Z')), true)
 })

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_WORKFLOW_GRACE_PERIOD_MS } from '../src/respond/respond-webhook.service.js'
+import { contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, latestIncomingTextBurst, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_WORKFLOW_GRACE_PERIOD_MS } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -46,6 +46,21 @@ describe('Respond workflow grace period', () => {
     assert.equal(incomingEventIsStillLatest([message(101, 'incoming'), message(100, 'incoming')], '100'), false)
     assert.equal(incomingEventIsStillLatest([message(100, 'incoming'), message(101, 'incoming')], '100'), false)
     assert.equal(incomingEventIsStillLatest([message(101, 'outgoing'), message(100, 'incoming')], '100'), false)
+  })
+
+  it('combines consecutive inbound text fragments for the newest event', () => {
+    const message = (messageId: number, traffic: 'incoming' | 'outgoing', text: string, type = 'text') => ({
+      messageId, contactId: 1, channelId: 1, traffic,
+      message: { type, text },
+    })
+    const messages = [
+      message(103, 'incoming', 'Quintanilla'),
+      message(102, 'incoming', '', 'unsupported'),
+      message(101, 'incoming', 'Brenda'),
+      message(100, 'outgoing', '¿Cuál es tu nombre completo?'),
+    ]
+    assert.equal(latestIncomingTextBurst(messages, '103', 'Quintanilla'), 'Brenda\nQuintanilla')
+    assert.equal(latestIncomingTextBurst(messages, '101', 'Brenda'), null)
   })
 })
 

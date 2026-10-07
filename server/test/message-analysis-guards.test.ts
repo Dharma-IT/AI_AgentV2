@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isGreetingOnly, isLanguageNeutralMessage, isLocationAttempt, isStandaloneLanguageNeutralLocation } from '../src/services/maria.service.js'
+import { explicitLanguageHint, isGreetingOnly, isLanguageNeutralMessage, isLocationAttempt, isStandaloneLanguageNeutralLocation } from '../src/services/maria.service.js'
 
 test('greetings cannot be interpreted as a weight goal', () => {
   for (const greeting of ['Hello', 'Hi!', 'Hola', '¡Hola!', 'Olá', 'Bom dia']) {
@@ -24,6 +24,15 @@ test('numbers, phones, times, and option replies are language-neutral', () => {
   }
   assert.equal(isLanguageNeutralMessage('Mi peso es 250'), false)
   assert.equal(isLanguageNeutralMessage('I weigh 250'), false)
+})
+
+test('obvious language signals override uncertain model detection', () => {
+  assert.equal(explicitLanguageHint('Dónde están ubicados'), 'es')
+  assert.equal(explicitLanguageHint('Quiero perder 20 libras'), 'es')
+  assert.equal(explicitLanguageHint('Onde vocês estão localizados?'), 'pt')
+  assert.equal(explicitLanguageHint('Where are you located?'), 'en')
+  assert.equal(explicitLanguageHint('160'), null)
+  assert.equal(explicitLanguageHint('California'), null)
 })
 
 test('Spanish availability does not look like an ambiguous location correction', () => {

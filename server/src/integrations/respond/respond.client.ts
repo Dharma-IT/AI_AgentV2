@@ -47,6 +47,11 @@ interface RespondPage<T> {
   pagination?: { next?: string | null }
 }
 
+function cursorValue(cursor?: string) {
+  if (!cursor) return undefined
+  try { return new URL(cursor).searchParams.get('cursorId') ?? cursor } catch { return cursor }
+}
+
 export interface RespondMessage {
   messageId: number
   contactId: number
@@ -129,7 +134,8 @@ export class RespondClient {
 
   async listContactsPage(limit = 100, cursorId?: string): Promise<RespondPage<RespondContact>> {
     const query = new URLSearchParams({ limit: String(limit) })
-    if (cursorId) query.set('cursorId', cursorId)
+    const cursor = cursorValue(cursorId)
+    if (cursor) query.set('cursorId', cursor)
     const response = await this.fetchImplementation(`${RESPOND_BASE_URL}/contact/list?${query}`, {
       method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ search: '', timezone: 'America/New_York', filter: { $and: [] } }),
@@ -139,7 +145,8 @@ export class RespondClient {
 
   async listMessagesPage(identifier: string, limit = 100, cursorId?: string): Promise<RespondPage<RespondMessage>> {
     const query = new URLSearchParams({ limit: String(limit) })
-    if (cursorId) query.set('cursorId', cursorId)
+    const cursor = cursorValue(cursorId)
+    if (cursor) query.set('cursorId', cursor)
     const response = await this.fetchImplementation(
       `${RESPOND_BASE_URL}/contact/${encodeURIComponent(identifier)}/message/list?${query}`,
       { headers: this.headers() },

@@ -60,8 +60,19 @@ export function isLanguageNeutralMessage(message: string) {
   return false
 }
 
+export function explicitLanguageHint(message: string): 'en' | 'es' | 'pt' | null {
+  if (isLanguageNeutralMessage(message)) return null
+  const normalized = normalizeLocationText(message)
+  if (/\b(?:donde|ubicad[oa]s?|quiero|quisiera|peso|libras|necesito|hablan|espanol|gracias|cuanto|puedo|vivo|estoy|nombre completo|telefono)\b/i.test(normalized)) return 'es'
+  if (/\b(?:onde|localizad[oa]s?|quero|gostaria|peso|libras|preciso|falam|portugues|obrigad[oa]|quanto|posso|moro|estou|nome completo|telefone)\b/i.test(normalized)) return 'pt'
+  if (/\b(?:where|located|want|would like|weight|pounds|need|speak|english|thanks|thank you|how much|can i|i live|i am|full name|phone)\b/i.test(normalized)) return 'en'
+  return null
+}
+
 export async function detectCustomerLanguage(message: string): Promise<'en' | 'es' | 'pt' | 'other'> {
   if (isLanguageNeutralMessage(message)) return 'other'
+  const explicit = explicitLanguageHint(message)
+  if (explicit) return explicit
   const response = await openai.responses.parse({
     model: env.OPENAI_MODEL,
     instructions: `Detect the language in which the customer wrote the message.
@@ -123,9 +134,10 @@ Latest customer message: ${message}`,
 
   const recognition = recognizeUSLocation(message)
   const locationAttempted = isLocationAttempt(message)
+  const explicitLanguage = explicitLanguageHint(message)
   return {
     ...response.output_parsed,
-    detectedLanguage: isLanguageNeutralMessage(message) ? 'other' : response.output_parsed.detectedLanguage,
+    detectedLanguage: isLanguageNeutralMessage(message) ? 'other' : explicitLanguage ?? response.output_parsed.detectedLanguage,
     customerWeightGoal: isGreetingOnly(message) ? null : response.output_parsed.customerWeightGoal,
     customerStateCode: recognition.stateCode,
     customerCity: recognition.city ?? null,
