@@ -103,7 +103,7 @@ type Dependencies = {
 export class ConversationService {
   constructor(private readonly dependencies: Dependencies) {}
 
-  createConversation() {
+  createConversation(preferredLanguage: 'en' | 'es' | 'pt' = 'es') {
     const now = new Date().toISOString()
     const state: ConversationState = {
       id: randomUUID(),
@@ -112,7 +112,7 @@ export class ConversationService {
       customerState: null,
       customerCity: null,
       stateEligibility: null,
-      preferredLanguage: 'en',
+      preferredLanguage,
       introductionSent: true,
       empathyResponseSent: false,
       consultationIntroSent: false,
@@ -131,7 +131,7 @@ export class ConversationService {
       customerFullName: null,
       conversationStatus: 'active',
       lastAskedQuestion: 'weight_goal',
-      messages: [{ role: 'maria', content: initialGreeting, createdAt: now }],
+      messages: [{ role: 'maria', content: initialGreetingForLanguage(preferredLanguage), createdAt: now }],
       createdAt: now,
       updatedAt: now,
     }

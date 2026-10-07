@@ -113,6 +113,13 @@ test('scenario 7: language switching preserves context and changes preference', 
   assert.equal(conversation.currentStage, 'state')
 })
 
+test('language-neutral answers preserve the established conversation language', () => {
+  const conversation = state()
+  conversation.preferredLanguage = 'es'
+  applyMessageAnalysis(conversation, analysis({ detectedLanguage: 'other', customerWeightGoal: '160' }))
+  assert.equal(conversation.preferredLanguage, 'es')
+})
+
 test('scenario 8: alternate appointment request is captured without repeating promotion', () => {
   const conversation = state()
   applyMessageAnalysis(conversation, analysis({ customerWeightGoal: 'Lose weight', customerStateCode: 'FL' }))

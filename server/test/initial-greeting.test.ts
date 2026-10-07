@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { initialGreeting, initialGreetingForLanguage } from '../src/services/conversation.service.js'
+import { conversationService, initialGreeting, initialGreetingForLanguage } from '../src/services/conversation.service.js'
 import { formatAppointmentStartTime12Hour } from '../src/services/maria.service.js'
 
 test('uses the approved fixed greeting in the contact language', () => {
@@ -8,6 +8,12 @@ test('uses the approved fixed greeting in the contact language', () => {
   assert.match(initialGreetingForLanguage('es'), /^¡Hola! Soy Maria de Dharma Clinic 🌿/)
   assert.match(initialGreetingForLanguage('es'), /¿cuál es tu principal objetivo de peso/)
   assert.match(initialGreetingForLanguage('pt'), /^Olá! Sou Maria da Dharma Clinic 🌿/)
+})
+
+test('new conversations default to Spanish and retain a Spanish greeting in context', () => {
+  const conversation = conversationService.createConversation()
+  assert.equal(conversation.preferredLanguage, 'es')
+  assert.equal(conversation.messages[0]?.content, initialGreetingForLanguage('es'))
 })
 
 test('formats appointment starts with a 12-hour clock for every reply language', () => {

@@ -7,6 +7,7 @@ import { getRespondConversationId, resetRespondConversationSession, setRespondCo
 import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/user-mapping.js'
 import { bookingVideo, sendMediaWithoutBlockingText, welcomeImage } from './respond-media.js'
 import { detectCustomerLanguage } from '../services/maria.service.js'
+import type { RespondMessage } from '../integrations/respond/respond.client.js'
 
 type Json = Record<string, unknown>
 
@@ -22,6 +23,13 @@ export async function contactAfterWorkflowGracePeriod<T>(
 ) {
   await waitForWorkflows(RESPOND_WORKFLOW_GRACE_PERIOD_MS)
   return loadContact()
+}
+
+export function incomingEventIsStillLatest(messages: RespondMessage[], incomingMessageId: string) {
+  const latest = messages.reduce<RespondMessage | undefined>((current, message) => (
+    !current || message.messageId > current.messageId ? message : current
+  ), undefined)
+  return !latest || String(latest.messageId) === incomingMessageId
 }
 
 function object(value: unknown): Json | null { return value && typeof value === 'object' && !Array.isArray(value) ? value as Json : null }
@@ -79,7 +87,8 @@ export function inferredLanguage(contactLanguage: string | null | undefined, tex
   if (contactLanguage === 'es' || contactLanguage === 'pt' || contactLanguage === 'en') return contactLanguage
   if (/(?:^|\s)(?:hola|buenas|buenos días|buenas tardes)(?=\s|[!?.,¡¿]|$)/i.test(text)) return 'es'
   if (/(?:^|\s)(?:olá|oi|bom dia|boa tarde)(?=\s|[!?.,¡¿]|$)/i.test(text)) return 'pt'
-  return 'en'
+  if (/(?:^|\s)(?:hello|hi|hey|good morning|good afternoon)(?=\s|[!?.,]|$)/i.test(text)) return 'en'
+  return 'es'
 }
 
 export async function processIncomingWebhook(
@@ -107,6 +116,11 @@ export async function processIncomingWebhook(
     () => client.getContact(identifier),
     waitForWorkflows,
   ) as { assignee?: unknown; firstName?: string; lastName?: string; language?: string | null }
+
+  const recentMessages = await client.listMessagesPage(identifier, 10)
+  if (!incomingEventIsStillLatest(recentMessages.items, event.messageId)) {
+    return { action: 'superseded_during_grace_period' }
+  }
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
   if (!isUnassigned) return { action: 'human_assigned' }
@@ -123,7 +137,7 @@ export async function processIncomingWebhook(
     const language = detectedLanguage === 'other'
       ? liveContact.language === 'es' || liveContact.language === 'pt' || liveContact.language === 'en'
         ? liveContact.language
-        : 'en'
+        : 'es'
       : detectedLanguage
     const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
     if (!claimed) return { action: 'stale_after_reset' }
@@ -135,7 +149,10 @@ export async function processIncomingWebhook(
 
   let conversationId = getRespondConversationId(event.contactId, control?.reset_at ?? null)
   if (!conversationId) {
-    conversationId = conversationService.createConversation().id
+    const startingLanguage = liveContact.language === 'es' || liveContact.language === 'pt' || liveContact.language === 'en'
+      ? liveContact.language
+      : inferredLanguage(null, event.text)
+    conversationId = conversationService.createConversation(startingLanguage).id
     setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null)
   }
   let result

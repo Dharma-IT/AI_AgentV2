@@ -51,7 +51,17 @@ export function isGreetingOnly(message: string) {
   return /^\s*[¡¿]*(?:hello|hi|hey|hola|buenas|buenos días|buenas tardes|olá|oi|bom dia|boa tarde)[!.?¡¿\s]*$/iu.test(message)
 }
 
+export function isLanguageNeutralMessage(message: string) {
+  const normalized = message.trim()
+  if (!normalized) return true
+  if (isStandaloneLanguageNeutralLocation(normalized)) return true
+  if (/^[+#()\d\s.,:/-]+(?:\s*(?:lb|lbs|kg|am|pm))?$/i.test(normalized)) return true
+  if (/^(?:a|b|#?[12]|first|second|primero|segundo|primeiro|sim|s[ií]|yes|no|ok|okay)$/i.test(normalized)) return true
+  return false
+}
+
 export async function detectCustomerLanguage(message: string): Promise<'en' | 'es' | 'pt' | 'other'> {
+  if (isLanguageNeutralMessage(message)) return 'other'
   const response = await openai.responses.parse({
     model: env.OPENAI_MODEL,
     instructions: `Detect the language in which the customer wrote the message.
@@ -115,7 +125,7 @@ Latest customer message: ${message}`,
   const locationAttempted = isLocationAttempt(message)
   return {
     ...response.output_parsed,
-    detectedLanguage: isStandaloneLanguageNeutralLocation(message) ? 'other' : response.output_parsed.detectedLanguage,
+    detectedLanguage: isLanguageNeutralMessage(message) ? 'other' : response.output_parsed.detectedLanguage,
     customerWeightGoal: isGreetingOnly(message) ? null : response.output_parsed.customerWeightGoal,
     customerStateCode: recognition.stateCode,
     customerCity: recognition.city ?? null,

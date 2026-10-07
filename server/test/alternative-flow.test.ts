@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { InMemoryConversationRepository } from '../src/repositories/conversation.repository.js'
-import { ConversationService, initialGreeting } from '../src/services/conversation.service.js'
+import { ConversationService, initialGreeting, initialGreetingForLanguage } from '../src/services/conversation.service.js'
 import { generateMariaReply } from '../src/services/maria.service.js'
 import { recognizeUSLocation } from '../src/location/us-city-recognition.js'
 import type { ConversationState, MessageAnalysis, ResponsePlan } from '../src/domain/conversation.js'
@@ -35,11 +35,12 @@ To better orient yourself, what is your main weight goal right now?`
   const { service, repository } = makeService()
   const first = service.createConversation()
   const second = service.createConversation()
-  assert.equal(first.messages[0]?.content, expected)
-  assert.equal(second.messages[0]?.content, expected)
+  const defaultGreeting = initialGreetingForLanguage('es')
+  assert.equal(first.messages[0]?.content, defaultGreeting)
+  assert.equal(second.messages[0]?.content, defaultGreeting)
   await service.processMessage(first.id, 'I want to lose weight in Florida')
   const ongoing = repository.findById(first.id)
-  assert.equal(ongoing?.messages.filter((message) => message.content === expected).length, 1)
+  assert.equal(ongoing?.messages.filter((message) => message.content === defaultGreeting).length, 1)
 })
 
 test('eligible direct state and city continue the consultation flow', async () => {

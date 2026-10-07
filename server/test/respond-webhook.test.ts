@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { contactAfterWorkflowGracePeriod, inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_WORKFLOW_GRACE_PERIOD_MS } from '../src/respond/respond-webhook.service.js'
+import { contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_WORKFLOW_GRACE_PERIOD_MS } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -36,6 +36,17 @@ describe('Respond workflow grace period', () => {
     assert.deepEqual(calls, ['wait', 'getContact'])
     assert.deepEqual(contact, { assignee: { id: 123 }, language: 'es' })
   })
+
+  it('suppresses an event when a newer inbound or outbound message exists', () => {
+    const message = (messageId: number, traffic: 'incoming' | 'outgoing') => ({
+      messageId, contactId: 1, channelId: 1, traffic,
+      message: { type: 'text', text: 'test' },
+    })
+    assert.equal(incomingEventIsStillLatest([message(100, 'incoming')], '100'), true)
+    assert.equal(incomingEventIsStillLatest([message(101, 'incoming'), message(100, 'incoming')], '100'), false)
+    assert.equal(incomingEventIsStillLatest([message(100, 'incoming'), message(101, 'incoming')], '100'), false)
+    assert.equal(incomingEventIsStillLatest([message(101, 'outgoing'), message(100, 'incoming')], '100'), false)
+  })
 })
 
 it('ignores the Instagram unsupported-message placeholder without treating normal text as unsupported', () => {
@@ -59,6 +70,7 @@ it('infers a missing Respond.io language while preserving an existing one', () =
   assert.equal(inferredLanguage(null, 'Hola'), 'es')
   assert.equal(inferredLanguage(null, 'Olá'), 'pt')
   assert.equal(inferredLanguage(null, 'Hello'), 'en')
+  assert.equal(inferredLanguage(null, '160'), 'es')
   assert.equal(inferredLanguage('es', 'Hello'), 'es')
 })
 
