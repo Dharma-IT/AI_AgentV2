@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { explicitLanguageHint, isGreetingOnly, isLanguageNeutralMessage, isLocationAttempt, isStandaloneLanguageNeutralLocation } from '../src/services/maria.service.js'
+import { explicitLanguageHint, explicitSchedulingPreference, isGreetingOnly, isLanguageNeutralMessage, isLocationAttempt, isStandaloneLanguageNeutralLocation } from '../src/services/maria.service.js'
 
 test('greetings cannot be interpreted as a weight goal', () => {
   for (const greeting of ['Hello', 'Hi!', 'Hola', '¡Hola!', 'Olá', 'Bom dia']) {
@@ -33,6 +33,19 @@ test('obvious language signals override uncertain model detection', () => {
   assert.equal(explicitLanguageHint('Where are you located?'), 'en')
   assert.equal(explicitLanguageHint('160'), null)
   assert.equal(explicitLanguageHint('California'), null)
+})
+
+test('relative dates and explicit times are retained as scheduling preferences', () => {
+  for (const message of [
+    'I am only available tomorrow',
+    '3:00 PM today',
+    'the day after tomorrow',
+    'mañana a las 3:00 PM',
+    'pasado mañana',
+    'amanhã às 3:00 PM',
+    'depois de amanhã',
+  ]) assert.equal(explicitSchedulingPreference(message), message)
+  assert.equal(explicitSchedulingPreference('I have a question'), null)
 })
 
 test('Spanish availability does not look like an ambiguous location correction', () => {

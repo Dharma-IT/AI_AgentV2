@@ -13,7 +13,12 @@ const meetingPool = [
   { hubspotUserId: 62115861, slug: 'aline-strelow' },
 ] as const
 
-type AvailabilityInput = { stateCode: string; city?: string | null; preference?: string | null }
+type AvailabilityInput = {
+  stateCode: string
+  city?: string | null
+  preference?: string | null
+  excludeLocalDates?: string[]
+}
 
 function localParts(timestamp: number, timezone: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -26,6 +31,21 @@ function localParts(timestamp: number, timezone: string) {
 function dateKey(timestamp: number, timezone: string) {
   const value = localParts(timestamp, timezone)
   return `${value.year}-${value.month}-${value.day}`
+}
+
+function addDaysToDateKey(value: string, days: number) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(Date.UTC(year!, month! - 1, day! + days)).toISOString().slice(0, 10)
+}
+
+function requestedRelativeDateKey(preference: string | null | undefined, timezone: string, now: number) {
+  if (!preference) return null
+  const normalized = preference.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('en-US')
+  const today = dateKey(now, timezone)
+  if (/\b(?:day after tomorrow|pasado manana|depois de amanha)\b/i.test(normalized)) return addDaysToDateKey(today, 2)
+  if (/\b(?:tomorrow|next day|manana|amanha)\b/i.test(normalized)) return addDaysToDateKey(today, 1)
+  if (/\b(?:today|hoy|hoje)\b/iu.test(normalized)) return today
+  return null
 }
 
 function preferenceMatches(timestamp: number, timezone: string, preference?: string | null) {
@@ -65,6 +85,24 @@ function hasTimeConstraint(preference?: string | null) {
     || /\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*(?:am|pm)\b/i.test(preference)
 }
 
+function requestedTimeMinutes(preference?: string | null) {
+  if (!preference) return null
+  const match = preference.toLowerCase().match(/\b(1[0-2]|0?[1-9])(?::([0-5]\d))?\s*(am|pm)\b/)
+  if (!match) return null
+  let hour = Number(match[1]) % 12
+  if (match[3] === 'pm') hour += 12
+  return hour * 60 + Number(match[2] ?? 0)
+}
+
+function withoutExplicitTime(preference: string) {
+  return preference.replace(/\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*(?:am|pm)\b/ig, '')
+}
+
+function localMinuteOfDay(slot: AppointmentSlot, timezone: string) {
+  const parts = localParts(Date.parse(slot.startTime), timezone)
+  return (Number(parts.hour) % 24) * 60 + Number(parts.minute)
+}
+
 function chooseTwo(slots: AppointmentSlot[]) {
   const chosen: AppointmentSlot[] = []
   for (const slot of slots) {
@@ -73,6 +111,15 @@ function chooseTwo(slots: AppointmentSlot[]) {
     chosen.push(slot)
     if (chosen.length === 2) return chosen
   }
+  for (const slot of slots) {
+    if (!chosen.some((item) => item.startTime === slot.startTime)) chosen.push(slot)
+    if (chosen.length === 2) break
+  }
+  return chosen
+}
+
+function chooseClosestTwo(slots: AppointmentSlot[]) {
+  const chosen: AppointmentSlot[] = []
   for (const slot of slots) {
     if (!chosen.some((item) => item.startTime === slot.startTime)) chosen.push(slot)
     if (chosen.length === 2) break
@@ -115,12 +162,31 @@ export async function findAppointmentAvailability(
   }))
   const all = results.flatMap((result) => result.status === 'fulfilled' ? result.value : [])
     .filter((slot) => Date.parse(slot.startTime) > now + 15 * 60 * 1000)
+    .filter((slot) => !input.excludeLocalDates?.includes(dateKey(Date.parse(slot.startTime), timezone)))
     .sort((left, right) => left.startTime.localeCompare(right.startTime))
-  const preferred = all.filter((slot) => preferenceMatches(Date.parse(slot.startTime), timezone, input.preference))
-  const candidatePool = preferred.length ? preferred : hasDateConstraint(input.preference) ? [] : all
+  const requestedDate = requestedRelativeDateKey(input.preference, timezone, now)
+  const dateConstrained = requestedDate
+    ? all.filter((slot) => dateKey(Date.parse(slot.startTime), timezone) === requestedDate)
+    : all
+  const preferred = dateConstrained.filter((slot) => preferenceMatches(Date.parse(slot.startTime), timezone, input.preference))
+  const requestedMinutes = requestedTimeMinutes(input.preference)
+  const closestSlots = requestedMinutes === null
+    ? []
+    : dateConstrained
+      .filter((slot) => preferenceMatches(Date.parse(slot.startTime), timezone, withoutExplicitTime(input.preference!)))
+      .sort((left, right) => {
+        const distance = Math.abs(localMinuteOfDay(left, timezone) - requestedMinutes)
+          - Math.abs(localMinuteOfDay(right, timezone) - requestedMinutes)
+        return distance || left.startTime.localeCompare(right.startTime)
+      })
+  const candidatePool = preferred.length
+    ? preferred
+    : closestSlots.length
+      ? closestSlots
+      : hasDateConstraint(input.preference) || requestedDate ? [] : all
   const tomorrowSlots = candidatePool.filter((slot) => dateKey(Date.parse(slot.startTime), timezone) === tomorrowKey)
   const selectedPool = tomorrowSlots.length ? tomorrowSlots : candidatePool
   return hasTimeConstraint(input.preference)
-    ? chooseTwo(selectedPool)
+    ? preferred.length ? chooseTwo(selectedPool) : closestSlots.length ? chooseClosestTwo(closestSlots) : chooseTwo(selectedPool)
     : chooseMorningAndAfternoon(selectedPool, timezone)
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { InMemoryConversationRepository } from '../src/repositories/conversation.repository.js'
-import { ConversationService, initialGreeting, initialGreetingForLanguage } from '../src/services/conversation.service.js'
+import { ConversationService, initialGreeting, initialGreetingForLanguage, requestsAnotherAppointmentDate } from '../src/services/conversation.service.js'
 import { generateMariaReply } from '../src/services/maria.service.js'
 import { recognizeUSLocation } from '../src/location/us-city-recognition.js'
 import type { ConversationState, MessageAnalysis, ResponsePlan } from '../src/domain/conversation.js'
@@ -130,6 +130,24 @@ test('replying with choice B selects the corresponding offered slot', async () =
 
   assert.equal(result.state.selectedAppointmentSlot?.startTime, slots[1]?.startTime)
   assert.equal(result.state.lastAskedQuestion, 'phone')
+})
+
+test('another-date requests are recognized in supported languages', () => {
+  const base: MessageAnalysis = { detectedLanguage: 'other', customerWeightGoal: null, customerStateCode: null, questionTopics: [], appointmentIntent: 'none', appointmentPreference: null }
+  assert.equal(requestsAnotherAppointmentDate('Otra fecha', base), true)
+  assert.equal(requestsAnotherAppointmentDate('Prefiero otro día', base), true)
+  assert.equal(requestsAnotherAppointmentDate('another date', base), true)
+  assert.equal(requestsAnotherAppointmentDate('outra data', base), true)
+  assert.equal(requestsAnotherAppointmentDate('B', base), false)
+})
+
+test('selected slot reply preserves verified local time instead of interpreting UTC', async () => {
+  const state = makeService().service.createConversation('es')
+  const slot = { startTime: '2026-10-09T16:00:00.000Z', endTime: '2026-10-09T16:20:00.000Z', timezone: 'America/New_York', timezoneLabel: 'Miami Time', hubspotUserId: 1, meetingLinkSlug: 'test' }
+  const plan: ResponsePlan = { answerTopics: [], acknowledgeGoal: false, includeConsultationIntro: false, includePromotionIntro: false, includeStartingPrice: false, includePaymentOptions: false, acknowledgeAppointmentPreference: true, stateEligibility: 'serviceable', nextQuestion: 'phone', clarifyState: false, includeSupplementAlternative: false, selectedAppointmentSlot: slot, bookingDetailRequest: 'phone' }
+  const reply = await generateMariaReply('B', state, plan, emptyKnowledge('es'))
+  assert.match(reply, /12:00 PM/)
+  assert.doesNotMatch(reply, /4:00 PM/)
 })
 
 test('Florida location-first variants stay eligible and never enter the supplement branch', async () => {

@@ -52,6 +52,21 @@ function selectedOfferedSlot(message: string, analysis: MessageAnalysis, slots: 
   return null
 }
 
+export function requestsAnotherAppointmentDate(message: string, analysis: MessageAnalysis) {
+  if (analysis.appointmentIntent === 'requests_alternative') return true
+  return /\b(?:another|different|other|next)\s+(?:date|day)\b|\b(?:otra|otro|diferente|siguiente)\s+(?:fecha|d[ií]a)\b|\b(?:outra|outro|diferente|pr[oó]xim[oa])\s+(?:data|dia)\b/iu.test(message)
+}
+
+function offeredLocalDates(slots: AppointmentSlot[]) {
+  return [...new Set(slots.map((slot) => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: slot.timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(Date.parse(slot.startTime))
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+    return `${values.year}-${values.month}-${values.day}`
+  }))]
+}
+
 export function appointmentSlotIsBookable(slot: AppointmentSlot, now = Date.now()) {
   return Date.parse(slot.startTime) > now
 }
@@ -101,6 +116,7 @@ type Dependencies = {
     stateCode: string
     city?: string | null
     preference?: string | null
+    excludeLocalDates?: string[]
   }) => Promise<AppointmentSlot[]>
   bookAppointment?: typeof bookAppointment
 }
@@ -157,6 +173,7 @@ export class ConversationService {
       state.lastAskedQuestion = 'appointment'
     }
 
+    const previouslyOfferedSlots = [...(state.offeredAppointmentSlots ?? [])]
     const analysis = await this.dependencies.analyze(message, state)
     if (analysis.isUnderstandable === false) {
       throw new CustomerMessageNotUnderstoodError('Customer message could not be understood')
@@ -330,6 +347,9 @@ export class ConversationService {
           stateCode: state.customerState!,
           city: state.customerCity,
           preference: state.selectedAppointmentPreference,
+          excludeLocalDates: requestsAnotherAppointmentDate(message, analysis)
+            ? offeredLocalDates(previouslyOfferedSlots)
+            : undefined,
         })
         state.offeredAppointmentSlots = slots
         state.customerTimezone = slots[0]?.timezone ?? state.customerTimezone

@@ -47,6 +47,14 @@ Identify every question topic. Detect the language of the latest message. Return
 Set isUnderstandable to false only when the latest customer text is genuinely unintelligible or meaningless. Short but actionable replies such as A, B, first, second, yes, no, a time, a date, a phone number, a person's name, or a greeting are understandable.
 Capture scheduling preferences, but never interpret a vague answer as a confirmed booking.`
 
+export function explicitSchedulingPreference(message: string) {
+  const normalized = message.normalize('NFD').replace(/\p{M}/gu, '')
+  return /\b(?:today|tomorrow|next day|day after tomorrow|hoy|manana|pasado manana|hoje|amanha|depois de amanha)\b/i.test(normalized)
+    || /\b(?:1[0-2]|0?[1-9])(?::[0-5]\d)?\s*(?:am|pm)\b/i.test(message)
+    ? message.trim()
+    : null
+}
+
 export function isGreetingOnly(message: string) {
   return /^\s*[¡¿]*(?:hello|hi|hey|hola|buenas|buenos días|buenas tardes|olá|oi|bom dia|boa tarde)[!.?¡¿\s]*$/iu.test(message)
 }
@@ -95,6 +103,20 @@ export function formatAppointmentStartTime12Hour(startTime: string, timezone: st
   }).format(Date.parse(startTime))
 }
 
+function formatAppointmentDate(startTime: string, timezone: string, language: ConversationState['preferredLanguage']) {
+  return new Intl.DateTimeFormat(language === 'es' ? 'es-US' : language === 'pt' ? 'pt-BR' : 'en-US', {
+    timeZone: timezone, month: 'long', day: 'numeric', year: 'numeric',
+  }).format(Date.parse(startTime))
+}
+
+function selectedSlotReply(state: ConversationState, slot: NonNullable<ResponsePlan['selectedAppointmentSlot']>) {
+  const time = formatAppointmentStartTime12Hour(slot.startTime, slot.timezone)
+  const date = formatAppointmentDate(slot.startTime, slot.timezone, state.preferredLanguage)
+  if (state.preferredLanguage === 'es') return `Perfecto. Seleccionaste la consulta gratuita por videollamada para el ${date} a las ${time} (${slot.timezoneLabel}). 😊\n\nPara completar la reserva, ¿podrías proporcionar un número telefónico válido de Estados Unidos?`
+  if (state.preferredLanguage === 'pt') return `Perfeito. Você selecionou a consulta gratuita por videochamada para ${date}, às ${time} (${slot.timezoneLabel}). 😊\n\nPara concluir a reserva, poderia fornecer um número de telefone válido dos Estados Unidos?`
+  return `Perfect. You selected the free video consultation for ${date} at ${time} (${slot.timezoneLabel}). 😊\n\nTo complete the booking, could you provide a valid U.S. phone number?`
+}
+
 export function isStandaloneLanguageNeutralLocation(message: string) {
   const recognition = recognizeUSLocation(message)
   const normalizedMessage = normalizeLocationText(message)
@@ -141,6 +163,7 @@ Latest customer message: ${message}`,
     customerWeightGoal: isGreetingOnly(message) ? null : response.output_parsed.customerWeightGoal,
     customerStateCode: recognition.stateCode,
     customerCity: recognition.city ?? null,
+    appointmentPreference: response.output_parsed.appointmentPreference ?? explicitSchedulingPreference(message),
     stateRecognition: recognition.kind === 'none' && locationAttempted ? 'ambiguous' : recognition.kind,
     stateCandidates: recognition.candidates,
   }
@@ -153,6 +176,9 @@ export async function generateMariaReply(
   knowledge: KnowledgeContext,
 ): Promise<string> {
   if (plan.bookingConfirmation) return plan.bookingConfirmation
+  if (plan.selectedAppointmentSlot && plan.bookingDetailRequest === 'phone') {
+    return selectedSlotReply(state, plan.selectedAppointmentSlot)
+  }
   if (plan.bookingFailed) {
     if (state.preferredLanguage === 'es') return 'Lo siento, no pude completar la reserva en HubSpot. Su cita no está confirmada todavía. Nuestro equipo debe revisarla; no es necesario que vuelva a enviar sus datos.'
     if (state.preferredLanguage === 'pt') return 'Desculpe, não consegui concluir a reserva no HubSpot. Sua consulta ainda não está confirmada. Nossa equipe precisa verificá-la; você não precisa enviar seus dados novamente.'
@@ -230,6 +256,7 @@ Do not mention internal stages, database tables, embeddings, retrieval, configur
         })) ?? [],
         selectedAppointmentSlot: plan.selectedAppointmentSlot ? {
           startTime: plan.selectedAppointmentSlot.startTime,
+          displayStartTime: formatAppointmentStartTime12Hour(plan.selectedAppointmentSlot.startTime, plan.selectedAppointmentSlot.timezone),
           timezone: plan.selectedAppointmentSlot.timezone,
           timezoneLabel: plan.selectedAppointmentSlot.timezoneLabel,
         } : null,
