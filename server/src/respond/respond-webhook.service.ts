@@ -13,6 +13,7 @@ import { claudiaIntroductionForLanguage, claudiaQuestionTransition } from '../se
 type Json = Record<string, unknown>
 
 export const RESPOND_WORKFLOW_GRACE_PERIOD_MS = 20_000
+export const RESPOND_FOLLOW_UP_GRACE_PERIOD_MS = 3_000
 
 type Wait = (milliseconds: number) => Promise<void>
 
@@ -21,9 +22,14 @@ const wait: Wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve
 export async function contactAfterWorkflowGracePeriod<T>(
   loadContact: () => Promise<T>,
   waitForWorkflows: Wait = wait,
+  delayMs = RESPOND_WORKFLOW_GRACE_PERIOD_MS,
 ) {
-  await waitForWorkflows(RESPOND_WORKFLOW_GRACE_PERIOD_MS)
+  await waitForWorkflows(delayMs)
   return loadContact()
+}
+
+export function workflowGracePeriod(control: { maria_greeting_sent_at?: string | null } | null) {
+  return control?.maria_greeting_sent_at ? RESPOND_FOLLOW_UP_GRACE_PERIOD_MS : RESPOND_WORKFLOW_GRACE_PERIOD_MS
 }
 
 export function incomingEventIsStillLatest(messages: RespondMessage[], incomingMessageId: string) {
@@ -121,6 +127,7 @@ export async function processIncomingWebhook(
   if (!event.text.trim() && !event.hasTransferableMedia) return { action: 'empty_event_ignored' }
 
   const identifier = `id:${event.contactId}`
+  const controlBeforeGracePeriod = await getContactAutomation(event.contactId)
 
   // Respond.io routing, language, lead-status, and bot workflows run
   // asynchronously after an incoming message. Give them time to finish, then
@@ -128,6 +135,7 @@ export async function processIncomingWebhook(
   const liveContact = await contactAfterWorkflowGracePeriod(
     () => client.getContact(identifier),
     waitForWorkflows,
+    workflowGracePeriod(controlBeforeGracePeriod),
   ) as { assignee?: unknown; firstName?: string; lastName?: string; language?: string | null }
 
   const recentMessages = await client.listMessagesPage(identifier, 10)

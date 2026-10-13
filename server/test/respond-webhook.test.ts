@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, latestIncomingTextBurst, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_WORKFLOW_GRACE_PERIOD_MS } from '../src/respond/respond-webhook.service.js'
+import { contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, latestIncomingTextBurst, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_FOLLOW_UP_GRACE_PERIOD_MS, RESPOND_WORKFLOW_GRACE_PERIOD_MS, workflowGracePeriod } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -35,6 +35,12 @@ describe('Respond workflow grace period', () => {
     assert.equal(waitedFor, RESPOND_WORKFLOW_GRACE_PERIOD_MS)
     assert.deepEqual(calls, ['wait', 'getContact'])
     assert.deepEqual(contact, { assignee: { id: 123 }, language: 'es' })
+  })
+
+  it('uses 20 seconds before the greeting and 3 seconds for follow-up messages', () => {
+    assert.equal(workflowGracePeriod(null), RESPOND_WORKFLOW_GRACE_PERIOD_MS)
+    assert.equal(workflowGracePeriod({ maria_greeting_sent_at: null }), RESPOND_WORKFLOW_GRACE_PERIOD_MS)
+    assert.equal(workflowGracePeriod({ maria_greeting_sent_at: '2026-10-14T00:00:00Z' }), RESPOND_FOLLOW_UP_GRACE_PERIOD_MS)
   })
 
   it('suppresses an event when a newer inbound or outbound message exists', () => {
