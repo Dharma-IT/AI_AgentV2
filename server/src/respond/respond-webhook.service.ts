@@ -157,7 +157,7 @@ export async function processIncomingWebhook(
     const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
     if (!claimed) return { action: 'stale_after_reset' }
     if (liveContact.language !== language) await client.updateContactLanguage(identifier, language)
-    await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
+    if (personality === 'maria') await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
     await client.sendTextMessage(identifier, personality === 'claudia' ? claudiaGreetingForLanguage(language) : initialGreetingForLanguage(language))
     return { action: 'greeted' }
   }
