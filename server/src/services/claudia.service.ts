@@ -34,7 +34,7 @@ export function claudiaOffer(language: ConversationState['preferredLanguage'], s
   const unavailable = salesUrl
     ? ''
     : language === 'es' ? 'Nuestro equipo debe confirmar el enlace antes de compartirlo.' : language === 'pt' ? 'Nossa equipe precisa confirmar o link antes de compartilhá-lo.' : 'Our team needs to confirm the link before sharing it.'
-  if (language === 'es') return `🌟 Nuestro Programa VIP Dharma incluye:
+  if (language === 'es') return `🌟 Así funciona nuestro Programa VIP Dharma:
 
 • 🤝 Atención 1:1 con nuestro equipo de soporte
 • 💚 Apoyo personalizado
@@ -44,10 +44,10 @@ export function claudiaOffer(language: ConversationState['preferredLanguage'], s
 • 📦 Medicamentos enviados desde una farmacia 503(a) con sede en EE. UU.
 • 🚚 Si recibes aprobación, tu pedido se envía en 3–5 días hábiles
 
-Semaglutida desde $199 y Tirzepatida desde $299. La aprobación clínica es obligatoria.
+Semaglutida desde $199 y Tirzepatida desde $299. La aprobación médica es obligatoria.
 
 ${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : `💬 ${unavailable}`}${link}`
-  if (language === 'pt') return `🌟 Nosso Programa VIP Dharma inclui:
+  if (language === 'pt') return `🌟 Veja como funciona o nosso Programa VIP Dharma:
 
 • 🤝 Atendimento individual com nossa equipe de suporte
 • 💚 Suporte personalizado
@@ -57,10 +57,10 @@ ${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : `💬 ${unavailable}`}$
 • 📦 Medicamentos enviados por uma farmácia 503(a) sediada nos EUA
 • 🚚 Se houver aprovação, seu pedido será enviado em 3–5 dias úteis
 
-Semaglutida a partir de US$ 199 e Tirzepatida a partir de US$ 299. A aprovação clínica é obrigatória.
+Semaglutida a partir de US$ 199 e Tirzepatida a partir de US$ 299. A aprovação médica é obrigatória.
 
 ${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : `💬 ${unavailable}`}${link}`
-  return `🌟 Our VIP Dharma Program includes:
+  return `🌟 This is how our VIP Dharma Program works:
 
 • 🤝 1:1 support from our customer support team
 • 💚 Personalized support
@@ -70,7 +70,7 @@ ${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : `💬 ${unavailable}`
 • 📦 Medication shipped from a USA-based 503(a) pharmacy
 • 🚚 If approved, your order ships within 3–5 business days
 
-Semaglutide starts at $199 and Tirzepatide starts at $299. Clinical approval is required.
+Semaglutide starts at $199 and Tirzepatide starts at $299. Medical approval is required.
 
 ${salesUrl ? '✨ You can take the next step here:' : `💬 ${unavailable}`}${link}`
 }
@@ -105,7 +105,7 @@ Never diagnose, prescribe, determine eligibility, promise results, or invent fac
         approvedProgramFacts: {
           oneToOneSupport: 'Ongoing personalized customer-support guidance during the program; do not describe it as a medical consultation unless retrieved knowledge explicitly says so.',
           includedSupport: ['personalized support', 'medical supervision', 'nutritional guide', 'exercise guide'],
-          fulfillment: 'If clinically approved, orders ship in 3-5 business days from a USA-based 503(a) pharmacy.',
+          fulfillment: 'If medically approved, orders ship in 3-5 business days from a USA-based 503(a) pharmacy.',
           startingPrices: { semaglutide: '$199', tirzepatide: '$299' },
         },
       }),
@@ -115,10 +115,10 @@ Never diagnose, prescribe, determine eligibility, promise results, or invent fac
 
   if (options.includeOffer) {
     const acknowledgment = state.preferredLanguage === 'es'
-      ? 'Gracias por compartir tu objetivo. Te acompañaremos con un enfoque personalizado, sujeto siempre a aprobación clínica.'
+      ? '💚 Tu objetivo es algo que nuestro equipo puede ayudarte a alcanzar. Como puedes ver en estas fotos, algunos de nuestros pacientes han reportado perder más de 60 lb. Los resultados individuales varían y se requiere aprobación médica. ✨'
       : state.preferredLanguage === 'pt'
-        ? 'Obrigada por compartilhar seu objetivo. Vamos apoiar você com uma abordagem personalizada, sempre sujeita à aprovação clínica.'
-        : 'Thank you for sharing your goal. We’ll support you with a personalized approach, always subject to clinical approval.'
+        ? '💚 Sua meta é algo que nossa equipe pode ajudar você a alcançar. Como você pode ver nestas fotos, alguns de nossos pacientes relataram perder mais de 60 lb. Os resultados individuais variam e a aprovação médica é obrigatória. ✨'
+        : '💚 Your goal is something our team can help you work toward. As you can see in these photos, some of our patients have reported losing 60+ lbs. Individual results vary, and medical approval is required. ✨'
     return [answer, acknowledgment, claudiaOffer(state.preferredLanguage, options.salesUrl)].filter(Boolean).join('\n\n')
   }
   if (options.includeLinkOnly && options.salesUrl) {

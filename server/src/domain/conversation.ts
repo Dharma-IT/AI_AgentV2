@@ -112,4 +112,5 @@ export type ResponsePlan = {
   bookingFailed?: boolean
   appointmentAvailabilityFailed?: boolean
   transferToFrontDesk?: boolean
+  includeResultsImage?: boolean
 }

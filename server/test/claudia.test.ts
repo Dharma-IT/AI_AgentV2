@@ -51,7 +51,9 @@ test('Claudia sends the complete sales offer and URL once, then resends only on 
   assert.match(first.reply, /503\(a\)/)
   assert.match(first.reply, /\$199/)
   assert.match(first.reply, /\$299/)
+  assert.match(first.reply, /Medical approval/)
   assert.match(first.reply, /https:\/\/example.com\/buy/)
+  assert.equal(first.plan.includeResultsImage, true)
 
   setAnalysis(analysis({ detectedLanguage: 'en', questionTopics: ['other'] }))
   const followUp = await instance.processMessage(conversation.id, 'Tell me more')
@@ -60,6 +62,19 @@ test('Claudia sends the complete sales offer and URL once, then resends only on 
   setAnalysis(analysis({ detectedLanguage: 'en' }))
   const link = await instance.processMessage(conversation.id, 'Can I get the purchase link?')
   assert.match(link.reply, /https:\/\/example.com\/buy/)
+})
+
+test('Claudia frames patient examples safely before explaining the VIP program', async () => {
+  const { instance } = service()
+  const state = instance.createConversation('en', 'claudia')
+  state.customerWeightGoal = 'lose 20 pounds'
+  const reply = await generateClaudiaReply('I want to lose 20 pounds', state, analysis({ detectedLanguage: 'en', customerWeightGoal: 'lose 20 pounds' }), emptyKnowledge, {
+    includeOffer: true, includeLinkOnly: false, salesUrl: 'https://example.com/buy',
+  })
+  assert.match(reply, /reported losing 60\+ lbs/)
+  assert.match(reply, /Individual results vary/)
+  assert.match(reply, /medical approval/i)
+  assert.match(reply, /how our VIP Dharma Program works/i)
 })
 
 test('Claudia identifies explicit sales-link requests', () => {

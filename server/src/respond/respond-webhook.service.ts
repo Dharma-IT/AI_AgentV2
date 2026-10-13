@@ -170,6 +170,7 @@ export async function processIncomingWebhook(
         return { action: 'front_desk_unintelligible_text' }
       }
       const transition = result.plan.answerTopics.length ? `${claudiaQuestionTransition(language)}\n\n` : ''
+      if (result.plan.includeResultsImage) await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
       await client.sendTextMessage(identifier, `${claudiaIntroductionForLanguage(language)}\n\n${transition}${result.reply}`)
       if (result.plan.transferToFrontDesk) {
         await transferToFrontDesk(event.contactId, event.contactName, client)
@@ -216,6 +217,9 @@ export async function processIncomingWebhook(
   }
   if (result.plan.bookingDetailsComplete) {
     await sendMediaWithoutBlockingText(client, identifier, bookingVideo)
+  }
+  if (personality === 'claudia' && result.plan.includeResultsImage) {
+    await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
   }
   await client.sendTextMessage(identifier, result.reply)
   if (result.plan.transferToFrontDesk) {

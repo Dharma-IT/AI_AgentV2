@@ -445,18 +445,18 @@ export class ConversationService {
     )
     state.messages = state.messages.slice(-20)
     this.dependencies.repository.save(state)
-    const plan = claudiaPlan(state, analysis, transferToFrontDesk)
+    const plan = claudiaPlan(state, analysis, transferToFrontDesk, includeOffer)
     return { reply, state: publicState(state), plan }
   }
 }
 
-function claudiaPlan(state: ConversationState, analysis: MessageAnalysis, transferToFrontDesk: boolean): ResponsePlan {
+function claudiaPlan(state: ConversationState, analysis: MessageAnalysis, transferToFrontDesk: boolean, includeOffer: boolean): ResponsePlan {
   return {
     answerTopics: [...new Set(analysis.questionTopics)], acknowledgeGoal: Boolean(analysis.customerWeightGoal),
     includeConsultationIntro: false, includePromotionIntro: false, includeStartingPrice: false,
     includePaymentOptions: false, acknowledgeAppointmentPreference: false, stateEligibility: null,
     nextQuestion: state.lastAskedQuestion, clarifyState: false, includeSupplementAlternative: false,
-    transferToFrontDesk,
+    transferToFrontDesk, includeResultsImage: includeOffer,
   }
 }
 
