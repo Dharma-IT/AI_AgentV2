@@ -1,6 +1,6 @@
 import { conversationService, CustomerMessageNotUnderstoodError } from '../services/conversation.service.js'
 import { RespondClient } from '../integrations/respond/respond.client.js'
-import { isRespondChannelEnabled } from '../admin/respond-channel.service.js'
+import { getRespondChannelPersonality } from '../admin/respond-channel.service.js'
 import { getContactAutomation, lockBookedContact, mariaMayRespond, markMariaGreetingSent, resetGenerationIsCurrent, restoreLockedOwner, transferToFrontDesk } from './contact-automation.service.js'
 import { initialGreetingForLanguage } from '../services/conversation.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from './respond-session.service.js'
@@ -8,6 +8,7 @@ import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/us
 import { bookingVideo, sendMediaWithoutBlockingText, welcomeImage } from './respond-media.js'
 import { detectCustomerLanguage } from '../services/maria.service.js'
 import type { RespondMessage } from '../integrations/respond/respond.client.js'
+import { claudiaGreetingForLanguage } from '../services/claudia.service.js'
 
 type Json = Record<string, unknown>
 
@@ -109,7 +110,8 @@ export async function processIncomingWebhook(
 ) {
   const event = parseIncomingWebhook(payload)
   if (!event.contactId || !event.channelId) throw new Error('Respond webhook is missing contact or channel ID')
-  if (!await isRespondChannelEnabled(event.channelId)) return { action: 'channel_disabled' }
+  const personality = await getRespondChannelPersonality(event.channelId)
+  if (!personality) return { action: 'channel_disabled' }
 
   // Instagram can emit a synthetic placeholder in a nested field while leaving
   // the normal text field empty. It is platform noise, not customer media.
@@ -156,17 +158,17 @@ export async function processIncomingWebhook(
     if (!claimed) return { action: 'stale_after_reset' }
     if (liveContact.language !== language) await client.updateContactLanguage(identifier, language)
     await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
-    await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
+    await client.sendTextMessage(identifier, personality === 'claudia' ? claudiaGreetingForLanguage(language) : initialGreetingForLanguage(language))
     return { action: 'greeted' }
   }
 
-  let conversationId = getRespondConversationId(event.contactId, control?.reset_at ?? null)
+  let conversationId = getRespondConversationId(event.contactId, control?.reset_at ?? null, personality)
   if (!conversationId) {
     const startingLanguage = liveContact.language === 'es' || liveContact.language === 'pt' || liveContact.language === 'en'
       ? liveContact.language
       : inferredLanguage(null, customerText)
-    conversationId = conversationService.createConversation(startingLanguage).id
-    setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null)
+    conversationId = conversationService.createConversation(startingLanguage, personality).id
+    setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null, personality)
   }
   let result
   try {
@@ -189,6 +191,11 @@ export async function processIncomingWebhook(
     await sendMediaWithoutBlockingText(client, identifier, bookingVideo)
   }
   await client.sendTextMessage(identifier, result.reply)
+  if (result.plan.transferToFrontDesk) {
+    await transferToFrontDesk(event.contactId, event.contactName, client)
+    resetRespondConversationSession(event.contactId)
+    return { action: 'front_desk_medical' }
+  }
   if (result.plan.bookingDetailsComplete && result.plan.bookingFinancingMessage) {
     await client.sendTextMessage(identifier, result.plan.bookingFinancingMessage)
     const slot = result.state.selectedAppointmentSlot

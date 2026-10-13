@@ -4,21 +4,25 @@ export const conversationStages = [
   'consultation',
   'appointment',
   'booking_details',
+  'sales_offer_sent',
+  'conversational',
   'complete',
 ] as const
 
 export type ConversationStage = (typeof conversationStages)[number]
 export type ConversationStatus = 'active' | 'needs_staff' | 'completed'
 export type PreferredLanguage = 'en' | 'es' | 'pt' | 'other'
+export type ConversationPersonality = 'maria' | 'claudia'
 
 export type ChatMessage = {
-  role: 'customer' | 'maria'
+  role: 'customer' | ConversationPersonality
   content: string
   createdAt: string
 }
 
 export type ConversationState = {
   id: string
+  personality: ConversationPersonality
   currentStage: ConversationStage
   customerWeightGoal: string | null
   customerState: string | null
@@ -26,6 +30,7 @@ export type ConversationState = {
   stateEligibility: 'serviceable' | 'unserviceable' | 'unknown' | null
   preferredLanguage: PreferredLanguage
   introductionSent: boolean
+  salesOfferSent: boolean
   empathyResponseSent: boolean
   consultationIntroSent: boolean
   promotionIntroSent: boolean
@@ -105,4 +110,5 @@ export type ResponsePlan = {
   bookingFinancingMessage?: string | null
   bookingFailed?: boolean
   appointmentAvailabilityFailed?: boolean
+  transferToFrontDesk?: boolean
 }

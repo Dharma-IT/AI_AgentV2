@@ -20,6 +20,7 @@ const requiredTables = [
   'respond_channel_policies',
   'respond_contact_automation',
   'respond_front_desk_rotation',
+  'bot_settings',
 ] as const
 
 export type SupabaseHealth = {

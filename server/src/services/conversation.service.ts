@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { ConversationState, MessageAnalysis } from '../domain/conversation.js'
+import type { ConversationState, MessageAnalysis, ResponsePlan } from '../domain/conversation.js'
 import type { ConversationRepository } from '../repositories/conversation.repository.js'
 import { conversationRepository } from '../repositories/conversation.repository.js'
 import { applyMessageAnalysis } from './conversation-engine.js'
@@ -8,6 +8,9 @@ import { retrieveKnowledge } from '../knowledge/knowledge.retrieval.js'
 import { findAppointmentAvailability } from '../appointments/availability.service.js'
 import type { AppointmentSlot } from '../domain/conversation.js'
 import { bookAppointment } from '../appointments/booking.service.js'
+import { claudiaGreetingForLanguage, customerRequestsSalesLink, generateClaudiaReply } from './claudia.service.js'
+import { getClaudiaSalesUrl } from '../admin/bot-settings.service.js'
+import type { ConversationPersonality } from '../domain/conversation.js'
 
 function selectedOfferedSlot(message: string, analysis: MessageAnalysis, slots: AppointmentSlot[]) {
   const bookableSlots = slots.filter((slot) => appointmentSlotIsBookable(slot))
@@ -119,15 +122,18 @@ type Dependencies = {
     excludeLocalDates?: string[]
   }) => Promise<AppointmentSlot[]>
   bookAppointment?: typeof bookAppointment
+  generateClaudia?: typeof generateClaudiaReply
+  getClaudiaSalesUrl?: () => Promise<string | null>
 }
 
 export class ConversationService {
   constructor(private readonly dependencies: Dependencies) {}
 
-  createConversation(preferredLanguage: 'en' | 'es' | 'pt' = 'es') {
+  createConversation(preferredLanguage: 'en' | 'es' | 'pt' = 'es', personality: ConversationPersonality = 'maria') {
     const now = new Date().toISOString()
     const state: ConversationState = {
       id: randomUUID(),
+      personality,
       currentStage: 'weight_goal',
       customerWeightGoal: null,
       customerState: null,
@@ -135,6 +141,7 @@ export class ConversationService {
       stateEligibility: null,
       preferredLanguage,
       introductionSent: true,
+      salesOfferSent: false,
       empathyResponseSent: false,
       consultationIntroSent: false,
       promotionIntroSent: false,
@@ -152,7 +159,7 @@ export class ConversationService {
       customerFullName: null,
       conversationStatus: 'active',
       lastAskedQuestion: 'weight_goal',
-      messages: [{ role: 'maria', content: initialGreetingForLanguage(preferredLanguage), createdAt: now }],
+      messages: [{ role: personality, content: personality === 'claudia' ? claudiaGreetingForLanguage(preferredLanguage) : initialGreetingForLanguage(preferredLanguage), createdAt: now }],
       createdAt: now,
       updatedAt: now,
     }
@@ -178,6 +185,7 @@ export class ConversationService {
     if (analysis.isUnderstandable === false) {
       throw new CustomerMessageNotUnderstoodError('Customer message could not be understood')
     }
+    if (state.personality === 'claudia') return this.processClaudiaMessage(state, message, analysis)
     const pendingBookingDetail = state.currentStage === 'booking_details' ? state.lastAskedQuestion : null
     const chosenSlot = selectedOfferedSlot(message, analysis, state.offeredAppointmentSlots ?? [])
     const flowBeforeAnalysis = {
@@ -373,11 +381,54 @@ export class ConversationService {
     this.dependencies.repository.save(state)
     return { reply, state: publicState(state), plan }
   }
+
+  private async processClaudiaMessage(state: ConversationState, message: string, analysis: MessageAnalysis) {
+    if (analysis.detectedLanguage !== 'other') state.preferredLanguage = analysis.detectedLanguage
+    if (analysis.customerWeightGoal) state.customerWeightGoal = analysis.customerWeightGoal
+    const knowledge = await this.dependencies.retrieve({ message, state, analysis })
+    const asksMedical = analysis.questionTopics.includes('medical_suitability')
+    const individualizedMedical = asksMedical && /\b(?:for me|safe for me|my dose|my condition|my medication|can i take|soy apt[oa]|es seguro para m[ií]|minha dose|posso tomar)\b/iu.test(message)
+    const hasMedicalKnowledge = knowledge.structured.length > 0 || knowledge.guidance.length > 0
+    const transferToFrontDesk = individualizedMedical || (asksMedical && !hasMedicalKnowledge)
+    const includeOffer = Boolean(state.customerWeightGoal) && !state.salesOfferSent
+    const includeLinkOnly = state.salesOfferSent && customerRequestsSalesLink(message)
+    const salesUrl = (includeOffer || includeLinkOnly) && this.dependencies.getClaudiaSalesUrl
+      ? await this.dependencies.getClaudiaSalesUrl()
+      : null
+    const reply = await (this.dependencies.generateClaudia ?? generateClaudiaReply)(message, state, analysis, knowledge, {
+      includeOffer, includeLinkOnly, salesUrl,
+    })
+    if (includeOffer) state.salesOfferSent = true
+    state.currentStage = includeOffer ? 'sales_offer_sent' : state.customerWeightGoal ? 'conversational' : 'weight_goal'
+    state.lastAskedQuestion = state.customerWeightGoal ? null : 'weight_goal'
+    state.conversationStatus = transferToFrontDesk ? 'needs_staff' : 'active'
+    state.updatedAt = new Date().toISOString()
+    const now = state.updatedAt
+    state.messages.push(
+      { role: 'customer', content: message, createdAt: now },
+      { role: 'claudia', content: reply, createdAt: now },
+    )
+    state.messages = state.messages.slice(-20)
+    this.dependencies.repository.save(state)
+    const plan = claudiaPlan(state, analysis, transferToFrontDesk)
+    return { reply, state: publicState(state), plan }
+  }
+}
+
+function claudiaPlan(state: ConversationState, analysis: MessageAnalysis, transferToFrontDesk: boolean): ResponsePlan {
+  return {
+    answerTopics: [...new Set(analysis.questionTopics)], acknowledgeGoal: Boolean(analysis.customerWeightGoal),
+    includeConsultationIntro: false, includePromotionIntro: false, includeStartingPrice: false,
+    includePaymentOptions: false, acknowledgeAppointmentPreference: false, stateEligibility: null,
+    nextQuestion: state.lastAskedQuestion, clarifyState: false, includeSupplementAlternative: false,
+    transferToFrontDesk,
+  }
 }
 
 export function publicState(state: ConversationState) {
   return {
     id: state.id,
+    personality: state.personality,
     currentStage: state.currentStage,
     customerWeightGoal: state.customerWeightGoal,
     customerState: state.customerState,
@@ -385,6 +436,7 @@ export function publicState(state: ConversationState) {
     stateEligibility: state.stateEligibility,
     preferredLanguage: state.preferredLanguage,
     introductionSent: state.introductionSent,
+    salesOfferSent: state.salesOfferSent,
     empathyResponseSent: state.empathyResponseSent,
     consultationIntroSent: state.consultationIntroSent,
     promotionIntroSent: state.promotionIntroSent,
@@ -414,6 +466,8 @@ export const conversationService = new ConversationService({
   retrieve: retrieveKnowledge,
   findAvailability: findAppointmentAvailability,
   bookAppointment,
+  generateClaudia: generateClaudiaReply,
+  getClaudiaSalesUrl,
 })
 
 export function analysis(overrides: Partial<MessageAnalysis> = {}): MessageAnalysis {

@@ -6,11 +6,12 @@ import { requireAdmin } from '../middleware/admin-auth.js'
 import { businessRouter } from './business.routes.js'
 import { knowledgeHealth, retryFailedEmbeddings } from '../knowledge/knowledge.service.js'
 import { retryEmbeddingsSchema } from '../knowledge/knowledge.schemas.js'
-import { respondChannelIdSchema, respondChannelToggleSchema, respondSourceSchema } from '../admin/respond-channel.schemas.js'
-import { setRespondChannelEnabled, setRespondProviderEnabled, synchronizeRespondChannels } from '../admin/respond-channel.service.js'
+import { respondChannelAssignmentSchema, respondChannelIdSchema, respondSourceSchema } from '../admin/respond-channel.schemas.js'
+import { RespondChannelConflictError, setRespondChannelEnabled, setRespondProviderEnabled, synchronizeRespondChannels } from '../admin/respond-channel.service.js'
 import { resetContactToMaria, searchContactControls } from '../respond/contact-automation.service.js'
 import { z } from 'zod'
 import { requestConversationReport } from '../admin/conversation-report.service.js'
+import { claudiaSettingsSchema, getClaudiaSettings, updateClaudiaSettings } from '../admin/bot-settings.service.js'
 
 export const adminRouter = Router()
 
@@ -35,15 +36,27 @@ adminRouter.get('/respond-channels', async (_request, response, next) => {
 adminRouter.put('/respond-channels/:channelId', async (request, response, next) => {
   try {
     if (response.locals.adminRole === 'viewer') return response.status(403).json({ error: 'Editor access required' })
-    const data = await setRespondChannelEnabled(respondChannelIdSchema.parse(request.params.channelId), respondChannelToggleSchema.parse(request.body).enabled, response.locals.user.id)
+    const input = respondChannelAssignmentSchema.parse(request.body)
+    const data = await setRespondChannelEnabled(respondChannelIdSchema.parse(request.params.channelId), input.personality, input.enabled, response.locals.user.id)
     if (!data) return response.status(404).json({ error: 'Respond.io channel not found' })
     response.json({ data })
-  } catch (error) { next(error) }
+  } catch (error) { if (error instanceof RespondChannelConflictError) return response.status(409).json({ error: error.message }); next(error) }
 })
 adminRouter.put('/respond-channel-providers/:source', async (request, response, next) => {
   try {
     if (response.locals.adminRole === 'viewer') return response.status(403).json({ error: 'Editor access required' })
-    response.json({ data: await setRespondProviderEnabled(respondSourceSchema.parse(request.params.source), respondChannelToggleSchema.parse(request.body).enabled, response.locals.user.id) })
+    const input = respondChannelAssignmentSchema.parse(request.body)
+    response.json({ data: await setRespondProviderEnabled(respondSourceSchema.parse(request.params.source), input.personality, input.enabled, response.locals.user.id) })
+  } catch (error) { if (error instanceof RespondChannelConflictError) return response.status(409).json({ error: error.message }); next(error) }
+})
+adminRouter.get('/bot-settings/claudia', async (_request, response, next) => {
+  try { response.json({ data: await getClaudiaSettings() }) } catch (error) { next(error) }
+})
+adminRouter.put('/bot-settings/claudia', async (request, response, next) => {
+  try {
+    if (response.locals.adminRole === 'viewer') return response.status(403).json({ error: 'Editor access required' })
+    const input = claudiaSettingsSchema.parse(request.body)
+    response.json({ data: await updateClaudiaSettings(input.sales_url, response.locals.user.id) })
   } catch (error) { next(error) }
 })
 adminRouter.get('/respond-contacts', async (request, response, next) => {
