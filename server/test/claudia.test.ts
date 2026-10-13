@@ -67,6 +67,20 @@ test('Claudia identifies explicit sales-link requests', () => {
   assert.equal(customerRequestsSalesLink('What ingredients are used?'), false)
 })
 
+test('Claudia naturally re-offers the link after three follow-up questions', async () => {
+  const { instance, setAnalysis } = service()
+  const conversation = instance.createConversation('en', 'claudia')
+  await instance.processMessage(conversation.id, 'I want to lose 20 pounds')
+  setAnalysis(analysis({ detectedLanguage: 'en', questionTopics: ['other'] }))
+  const first = await instance.processMessage(conversation.id, 'What support is included?')
+  const second = await instance.processMessage(conversation.id, 'How does shipping work?')
+  const third = await instance.processMessage(conversation.id, 'What happens after approval?')
+  assert.doesNotMatch(first.reply, /example.com/)
+  assert.doesNotMatch(second.reply, /example.com/)
+  assert.match(third.reply, /https:\/\/example.com\/buy/)
+  assert.equal(third.state.questionsSinceSalesLink, 0)
+})
+
 test('Claudia follow-ups end with an empathetic sales action', async () => {
   const { instance } = service()
   const state = instance.createConversation('en', 'claudia')

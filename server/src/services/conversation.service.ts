@@ -142,6 +142,7 @@ export class ConversationService {
       preferredLanguage,
       introductionSent: true,
       salesOfferSent: false,
+      questionsSinceSalesLink: 0,
       empathyResponseSent: false,
       consultationIntroSent: false,
       promotionIntroSent: false,
@@ -182,6 +183,10 @@ export class ConversationService {
       }
     }
     state.salesOfferSent = ordered.some((entry) => entry.traffic === 'outgoing' && /VIP Dharma Program|Programa VIP Dharma|503\(a\)/iu.test(entry.message.text ?? ''))
+    const lastLinkedReply = ordered.findLastIndex((entry) => entry.traffic === 'outgoing' && /https?:\/\/|VIP Dharma Program|Programa VIP Dharma/iu.test(entry.message.text ?? ''))
+    state.questionsSinceSalesLink = state.salesOfferSent
+      ? ordered.slice(lastLinkedReply + 1).filter((entry) => entry.traffic === 'incoming' && /\?|\b(?:what|how|why|when|where|can|does|is|are|do|qué|que|cómo|como|cuándo|cuando|puedo|qual|quanto|posso)\b/iu.test(entry.message.text ?? '')).length
+      : 0
     if (state.customerWeightGoal) {
       state.currentStage = state.salesOfferSent ? 'conversational' : 'weight_goal'
       state.lastAskedQuestion = null
@@ -415,14 +420,20 @@ export class ConversationService {
     const hasMedicalKnowledge = knowledge.structured.length > 0 || knowledge.guidance.length > 0
     const transferToFrontDesk = individualizedMedical || (asksMedical && !hasMedicalKnowledge)
     const includeOffer = Boolean(state.customerWeightGoal) && !state.salesOfferSent
-    const includeLinkOnly = state.salesOfferSent && customerRequestsSalesLink(message)
+    const asksQuestion = analysis.questionTopics.length > 0 || message.includes('?')
+    if (state.salesOfferSent && asksQuestion) state.questionsSinceSalesLink += 1
+    const explicitLinkRequest = customerRequestsSalesLink(message)
+    const includeLinkOnly = !transferToFrontDesk && state.salesOfferSent && (explicitLinkRequest || state.questionsSinceSalesLink >= 3)
     const salesUrl = (includeOffer || includeLinkOnly) && this.dependencies.getClaudiaSalesUrl
       ? await this.dependencies.getClaudiaSalesUrl()
       : null
     const reply = await (this.dependencies.generateClaudia ?? generateClaudiaReply)(message, state, analysis, knowledge, {
       includeOffer, includeLinkOnly, salesUrl,
     })
-    if (includeOffer) state.salesOfferSent = true
+    if (includeOffer) {
+      state.salesOfferSent = true
+      state.questionsSinceSalesLink = 0
+    } else if (includeLinkOnly && salesUrl) state.questionsSinceSalesLink = 0
     state.currentStage = includeOffer ? 'sales_offer_sent' : state.customerWeightGoal ? 'conversational' : 'weight_goal'
     state.lastAskedQuestion = state.customerWeightGoal ? null : 'weight_goal'
     state.conversationStatus = transferToFrontDesk ? 'needs_staff' : 'active'
@@ -461,6 +472,7 @@ export function publicState(state: ConversationState) {
     preferredLanguage: state.preferredLanguage,
     introductionSent: state.introductionSent,
     salesOfferSent: state.salesOfferSent,
+    questionsSinceSalesLink: state.questionsSinceSalesLink,
     empathyResponseSent: state.empathyResponseSent,
     consultationIntroSent: state.consultationIntroSent,
     promotionIntroSent: state.promotionIntroSent,

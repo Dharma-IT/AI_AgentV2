@@ -31,6 +31,7 @@ export type ConversationState = {
   preferredLanguage: PreferredLanguage
   introductionSent: boolean
   salesOfferSent: boolean
+  questionsSinceSalesLink: number
   empathyResponseSent: boolean
   consultationIntroSent: boolean
   promotionIntroSent: boolean

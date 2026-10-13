@@ -122,7 +122,11 @@ Never diagnose, prescribe, determine eligibility, promise results, or invent fac
     return [answer, acknowledgment, claudiaOffer(state.preferredLanguage, options.salesUrl)].filter(Boolean).join('\n\n')
   }
   if (options.includeLinkOnly && options.salesUrl) {
-    const intro = state.preferredLanguage === 'es' ? 'Aquí tienes el enlace:' : state.preferredLanguage === 'pt' ? 'Aqui está o link:' : 'Here is the link:'
+    const intro = state.preferredLanguage === 'es'
+      ? '💚 Por lo que hemos conversado, este puede ser un buen momento para dar el siguiente paso. Aquí tienes el enlace cuando estés listo/a: ✨'
+      : state.preferredLanguage === 'pt'
+        ? '💚 Pelo que conversamos, este pode ser um bom momento para dar o próximo passo. Aqui está o link quando você estiver pronto/a: ✨'
+        : '💚 Based on what we’ve discussed, this may be a good time to take the next step. Here’s the link whenever you’re ready: ✨'
     return [answer, `${intro}\n\n${options.salesUrl}`].filter(Boolean).join('\n\n')
   }
   if (!state.customerWeightGoal) return [answer, askWeightGoal(state.preferredLanguage)].filter(Boolean).join('\n\n')
