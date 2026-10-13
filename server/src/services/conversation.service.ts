@@ -167,6 +167,30 @@ export class ConversationService {
     return state
   }
 
+  async restoreClaudiaContext(conversationId: string, history: Array<{ messageId: number; traffic: 'incoming' | 'outgoing'; message: { text?: string } }>) {
+    const state = this.dependencies.repository.findById(conversationId)
+    if (!state || state.personality !== 'claudia') return
+    const ordered = [...history].sort((a, b) => a.messageId - b.messageId)
+    const priorIncoming = ordered.filter((entry) => entry.traffic === 'incoming' && entry.message.text?.trim())
+    for (const entry of priorIncoming) {
+      const text = entry.message.text!.trim()
+      const analyzed = await this.dependencies.analyze(text, state)
+      if (analyzed.detectedLanguage !== 'other') state.preferredLanguage = analyzed.detectedLanguage
+      if (analyzed.customerWeightGoal) {
+        state.customerWeightGoal = analyzed.customerWeightGoal
+        break
+      }
+    }
+    state.salesOfferSent = ordered.some((entry) => entry.traffic === 'outgoing' && /VIP Dharma Program|Programa VIP Dharma|503\(a\)/iu.test(entry.message.text ?? ''))
+    if (state.customerWeightGoal) {
+      state.currentStage = state.salesOfferSent ? 'conversational' : 'weight_goal'
+      state.lastAskedQuestion = null
+      state.empathyResponseSent = true
+    }
+    state.updatedAt = new Date().toISOString()
+    this.dependencies.repository.save(state)
+  }
+
   async processMessage(conversationId: string, message: string) {
     const state = this.dependencies.repository.findById(conversationId)
     if (!state) throw new ConversationNotFoundError('Conversation not found')

@@ -8,7 +8,7 @@ import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/us
 import { bookingVideo, sendMediaWithoutBlockingText, welcomeImage } from './respond-media.js'
 import { detectCustomerLanguage } from '../services/maria.service.js'
 import type { RespondMessage } from '../integrations/respond/respond.client.js'
-import { claudiaGreetingForLanguage } from '../services/claudia.service.js'
+import { claudiaIntroductionForLanguage } from '../services/claudia.service.js'
 
 type Json = Record<string, unknown>
 
@@ -157,8 +157,28 @@ export async function processIncomingWebhook(
     const claimed = await markMariaGreetingSent(event.contactId, event.contactName, control?.reset_at ?? null)
     if (!claimed) return { action: 'stale_after_reset' }
     if (liveContact.language !== language) await client.updateContactLanguage(identifier, language)
-    if (personality === 'maria') await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
-    await client.sendTextMessage(identifier, personality === 'claudia' ? claudiaGreetingForLanguage(language) : initialGreetingForLanguage(language))
+    if (personality === 'claudia') {
+      const conversationId = conversationService.createConversation(language, 'claudia').id
+      setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null, 'claudia')
+      let result
+      try {
+        result = await conversationService.processMessage(conversationId, customerText)
+      } catch (cause) {
+        if (!(cause instanceof CustomerMessageNotUnderstoodError)) throw cause
+        resetRespondConversationSession(event.contactId)
+        await transferToFrontDesk(event.contactId, event.contactName, client)
+        return { action: 'front_desk_unintelligible_text' }
+      }
+      await client.sendTextMessage(identifier, `${claudiaIntroductionForLanguage(language)}\n\n${result.reply}`)
+      if (result.plan.transferToFrontDesk) {
+        await transferToFrontDesk(event.contactId, event.contactName, client)
+        resetRespondConversationSession(event.contactId)
+        return { action: 'front_desk_medical' }
+      }
+      return { action: 'greeted_and_replied' }
+    }
+    await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
+    await client.sendTextMessage(identifier, initialGreetingForLanguage(language))
     return { action: 'greeted' }
   }
 
@@ -169,6 +189,12 @@ export async function processIncomingWebhook(
       : inferredLanguage(null, customerText)
     conversationId = conversationService.createConversation(startingLanguage, personality).id
     setRespondConversationId(event.contactId, conversationId, control?.reset_at ?? null, personality)
+    if (personality === 'claudia') {
+      await conversationService.restoreClaudiaContext(
+        conversationId,
+        recentMessages.items.filter((entry) => String(entry.messageId) !== event.messageId),
+      )
+    }
   }
   let result
   try {
