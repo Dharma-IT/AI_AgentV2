@@ -31,9 +31,6 @@ export function customerRequestsSalesLink(message: string) {
 
 export function claudiaOffer(language: ConversationState['preferredLanguage'], salesUrl: string | null) {
   const link = salesUrl ? `\n\n${salesUrl}` : ''
-  const unavailable = salesUrl
-    ? ''
-    : language === 'es' ? 'Nuestro equipo debe confirmar el enlace antes de compartirlo.' : language === 'pt' ? 'Nossa equipe precisa confirmar o link antes de compartilhá-lo.' : 'Our team needs to confirm the link before sharing it.'
   if (language === 'es') return `🌟 Así funciona nuestro Programa VIP Dharma:
 
 • 🤝 Atención 1:1 con nuestro equipo de soporte
@@ -46,7 +43,7 @@ export function claudiaOffer(language: ConversationState['preferredLanguage'], s
 
 Semaglutida desde $199 y Tirzepatida desde $299. La aprobación médica es obligatoria.
 
-${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : `💬 ${unavailable}`}${link}`
+${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : ''}${link}`
   if (language === 'pt') return `🌟 Veja como funciona o nosso Programa VIP Dharma:
 
 • 🤝 Atendimento individual com nossa equipe de suporte
@@ -59,7 +56,7 @@ ${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : `💬 ${unavailable}`}$
 
 Semaglutida a partir de US$ 199 e Tirzepatida a partir de US$ 299. A aprovação médica é obrigatória.
 
-${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : `💬 ${unavailable}`}${link}`
+${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : ''}${link}`
   return `🌟 This is how our VIP Dharma Program works:
 
 • 🤝 1:1 support from our customer support team
@@ -72,7 +69,7 @@ ${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : `💬 ${unavailable}`
 
 Semaglutide starts at $199 and Tirzepatide starts at $299. Medical approval is required.
 
-${salesUrl ? '✨ You can take the next step here:' : `💬 ${unavailable}`}${link}`
+${salesUrl ? '✨ You can take the next step here:' : ''}${link}`
 }
 
 function askWeightGoal(language: ConversationState['preferredLanguage']) {
@@ -89,13 +86,13 @@ export async function generateClaudiaReply(
   options: { includeOffer: boolean; includeLinkOnly: boolean; salesUrl: string | null },
 ) {
   let answer = ''
-  if (analysis.questionTopics.length > 0) {
+  if (analysis.questionTopics.length > 0 && !customerRequestsSalesLink(customerMessage)) {
     const response = await openai.responses.create({
       model: env.OPENAI_MODEL,
       store: false,
       instructions: `You are Claudia from Dharma Nutrition Clinic: an empathetic, energetic, highly conversational sales concierge. Reply in ${state.preferredLanguage === 'es' ? 'Spanish' : state.preferredLanguage === 'pt' ? 'Portuguese' : 'English'}.
-Answer the customer's question first using only structuredKnowledge and behavioralGuidance, applying complianceRules first. Connect the answer naturally to the customer's goal and explain the practical value of the program rather than sounding like a reference article. Use 3 to 6 friendly, relevant emojis throughout the response. Be encouraging and persuasive without pressure, guarantees, or exaggerated claims.
-Never diagnose, prescribe, determine eligibility, promise results, or invent facts. If approved knowledge does not answer the question, say clinic staff must confirm it. Do not offer appointments, request a state, or mention internal systems. Do not include a purchase link or repeat the complete VIP program pitch; the application appends links and next actions when appropriate. Do not ask for the weight goal when it is already present in knownWeightGoal.`,
+Answer only the customer's current question using structuredKnowledge and behavioralGuidance, applying complianceRules first. Be concise: normally one or two short paragraphs with 1 to 3 relevant emojis. Do not repeat the customer's goal, the full VIP program, prices, shipping details, pharmacy details, or facts already communicated unless the customer specifically asks about them. Be encouraging and persuasive without pressure, guarantees, or exaggerated claims.
+Never diagnose, prescribe, determine eligibility, promise results, or invent facts. If approved knowledge does not answer the question, say clinic staff must confirm it. Do not offer appointments, request a state, or mention internal systems. Never say that you cannot share links, cannot send a link, or that another app or person must provide a link. Do not include a purchase URL in your generated answer or repeat the complete VIP program pitch; the application appends the real configured link when appropriate. Do not ask for the weight goal when it is already present in knownWeightGoal.`,
       input: JSON.stringify({
         customerMessage,
         knownWeightGoal: state.customerWeightGoal,
@@ -122,12 +119,7 @@ Never diagnose, prescribe, determine eligibility, promise results, or invent fac
     return [answer, acknowledgment, claudiaOffer(state.preferredLanguage, options.salesUrl)].filter(Boolean).join('\n\n')
   }
   if (options.includeLinkOnly && options.salesUrl) {
-    const intro = state.preferredLanguage === 'es'
-      ? '💚 Por lo que hemos conversado, este puede ser un buen momento para dar el siguiente paso. Aquí tienes el enlace cuando estés listo/a: ✨'
-      : state.preferredLanguage === 'pt'
-        ? '💚 Pelo que conversamos, este pode ser um bom momento para dar o próximo passo. Aqui está o link quando você estiver pronto/a: ✨'
-        : '💚 Based on what we’ve discussed, this may be a good time to take the next step. Here’s the link whenever you’re ready: ✨'
-    return [answer, `${intro}\n\n${options.salesUrl}`].filter(Boolean).join('\n\n')
+    return [answer, options.salesUrl].filter(Boolean).join('\n\n')
   }
   if (!state.customerWeightGoal) return [answer, askWeightGoal(state.preferredLanguage)].filter(Boolean).join('\n\n')
   const nextAction = state.preferredLanguage === 'es'

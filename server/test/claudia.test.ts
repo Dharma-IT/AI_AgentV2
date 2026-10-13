@@ -82,6 +82,18 @@ test('Claudia identifies explicit sales-link requests', () => {
   assert.equal(customerRequestsSalesLink('What ingredients are used?'), false)
 })
 
+test('an explicit link request returns the configured URL without refusal or redundant copy', async () => {
+  const { instance } = service()
+  const state = instance.createConversation('en', 'claudia')
+  state.customerWeightGoal = 'lose 20 pounds'
+  state.salesOfferSent = true
+  const reply = await generateClaudiaReply('Can you share the link again?', state, analysis({ detectedLanguage: 'en', questionTopics: ['other'] }), emptyKnowledge, {
+    includeOffer: false, includeLinkOnly: true, salesUrl: 'https://example.com/buy',
+  })
+  assert.equal(reply, 'https://example.com/buy')
+  assert.doesNotMatch(reply, /cannot|can’t|VIP Dharma|\$199/i)
+})
+
 test('Claudia naturally re-offers the link after three follow-up questions', async () => {
   const { instance, setAnalysis } = service()
   const conversation = instance.createConversation('en', 'claudia')
