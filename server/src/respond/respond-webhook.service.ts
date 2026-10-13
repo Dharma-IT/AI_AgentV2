@@ -8,7 +8,7 @@ import { findEligibleUserByHubSpotUserId } from '../integrations/user-mapping/us
 import { bookingVideo, sendMediaWithoutBlockingText, welcomeImage } from './respond-media.js'
 import { detectCustomerLanguage } from '../services/maria.service.js'
 import type { RespondMessage } from '../integrations/respond/respond.client.js'
-import { claudiaIntroductionForLanguage } from '../services/claudia.service.js'
+import { claudiaIntroductionForLanguage, claudiaQuestionTransition } from '../services/claudia.service.js'
 
 type Json = Record<string, unknown>
 
@@ -169,7 +169,8 @@ export async function processIncomingWebhook(
         await transferToFrontDesk(event.contactId, event.contactName, client)
         return { action: 'front_desk_unintelligible_text' }
       }
-      await client.sendTextMessage(identifier, `${claudiaIntroductionForLanguage(language)}\n\n${result.reply}`)
+      const transition = result.plan.answerTopics.length ? `${claudiaQuestionTransition(language)}\n\n` : ''
+      await client.sendTextMessage(identifier, `${claudiaIntroductionForLanguage(language)}\n\n${transition}${result.reply}`)
       if (result.plan.transferToFrontDesk) {
         await transferToFrontDesk(event.contactId, event.contactName, client)
         resetRespondConversationSession(event.contactId)

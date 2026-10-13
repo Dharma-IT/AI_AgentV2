@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { InMemoryConversationRepository } from '../src/repositories/conversation.repository.js'
 import { analysis, ConversationService } from '../src/services/conversation.service.js'
-import { claudiaGreetingForLanguage, claudiaIntroductionForLanguage, claudiaOffer, customerRequestsSalesLink, generateClaudiaReply } from '../src/services/claudia.service.js'
+import { claudiaGreetingForLanguage, claudiaIntroductionForLanguage, claudiaOffer, claudiaQuestionTransition, customerRequestsSalesLink, generateClaudiaReply } from '../src/services/claudia.service.js'
 import type { KnowledgeContext } from '../src/knowledge/knowledge.types.js'
 
 const emptyKnowledge: KnowledgeContext = {
@@ -33,8 +33,12 @@ test('Claudia has localized greetings that request a weight goal', () => {
 
 test('Claudia introductions do not ask the goal before an initial question is answered', () => {
   assert.match(claudiaIntroductionForLanguage('en'), /I'm Claudia/)
+  assert.match(claudiaIntroductionForLanguage('en'), /43 U\.S\. states/)
   assert.doesNotMatch(claudiaIntroductionForLanguage('en'), /weight goal/i)
   assert.match(claudiaGreetingForLanguage('en'), /weight goal/i)
+  assert.equal(claudiaQuestionTransition('en'), 'To answer your question:')
+  assert.equal(claudiaQuestionTransition('es'), 'Para responder a tu pregunta:')
+  assert.equal(claudiaQuestionTransition('pt'), 'Para responder à sua pergunta:')
 })
 
 test('Claudia sends the complete sales offer and URL once, then resends only on request', async () => {

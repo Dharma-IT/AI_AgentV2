@@ -6,13 +6,19 @@ import { openai } from '../lib/openai.js'
 export function claudiaIntroductionForLanguage(language: 'en' | 'es' | 'pt') {
   if (language === 'es') return `¡Hola! Soy Claudia de Dharma Clinic 🌿
 
-Estoy aquí para ayudarte a conocer nuestro programa personalizado para bajar de peso y responder tus preguntas.`
+Nos especializamos en pérdida de peso personalizada con Semaglutida y Tirzepatida, con envío directo a tu hogar en 43 estados de EE. UU. 📦✨`
   if (language === 'pt') return `Olá! Sou Claudia da Dharma Clinic 🌿
 
-Estou aqui para ajudar você a conhecer nosso programa personalizado de perda de peso e responder às suas perguntas.`
+Somos especializados em perda de peso personalizada com Semaglutida e Tirzepatida, com entrega direta na sua casa em 43 estados dos EUA. 📦✨`
   return `Hello! I'm Claudia from Dharma Clinic 🌿
 
-I'm here to help you learn about our personalized weight-loss program and answer your questions.`
+We specialize in personalized weight loss with Semaglutide and Tirzepatide, with direct shipping to your home in 43 U.S. states. 📦✨`
+}
+
+export function claudiaQuestionTransition(language: 'en' | 'es' | 'pt') {
+  if (language === 'es') return 'Para responder a tu pregunta:'
+  if (language === 'pt') return 'Para responder à sua pergunta:'
+  return 'To answer your question:'
 }
 
 export function claudiaGreetingForLanguage(language: 'en' | 'es' | 'pt') {
