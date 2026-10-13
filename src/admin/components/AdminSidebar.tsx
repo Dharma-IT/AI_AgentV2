@@ -10,7 +10,7 @@ export function AdminSidebar({ open, onClose }: Props) {
       {open && <button className="fixed inset-0 z-30 bg-slate-950/70 lg:hidden" onClick={onClose} aria-label="Close navigation" />}
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-slate-200 bg-white transition-transform lg:static lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex h-18 items-center justify-between border-b border-slate-200 px-5">
-          <div className="flex items-center gap-3"><span className="rounded-xl bg-violet-600 p-2 text-white"><Bot size={20} /></span><div><p className="font-semibold text-slate-900">Maria Admin</p><p className="text-xs text-slate-500">Dharma Clinic</p></div></div>
+          <div className="flex items-center gap-3"><span className="rounded-xl bg-violet-600 p-2 text-white"><Bot size={20} /></span><div><p className="font-semibold text-slate-900">AI Agent Admin</p><p className="text-xs text-slate-500">Dharma Clinic</p></div></div>
           <button className="p-2 text-slate-500 lg:hidden" onClick={onClose} aria-label="Close navigation"><X size={20} /></button>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
