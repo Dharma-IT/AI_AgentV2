@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { CLAUDIA_ENGLISH_CHANNEL_ID, CLAUDIA_OWNER_RESPOND_USER_ID, claudiaAssignedOwnerMayRespond, contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, latestIncomingTextBurst, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_FOLLOW_UP_GRACE_PERIOD_MS, RESPOND_WORKFLOW_GRACE_PERIOD_MS, workflowGracePeriod } from '../src/respond/respond-webhook.service.js'
+import { contactAfterWorkflowGracePeriod, incomingEventIsStillLatest, inferredLanguage, isPlatformUnsupportedPlaceholder, latestIncomingTextBurst, parseIncomingWebhook, payloadContainsPlatformUnsupportedPlaceholder, RESPOND_FOLLOW_UP_GRACE_PERIOD_MS, RESPOND_WORKFLOW_GRACE_PERIOD_MS, workflowGracePeriod } from '../src/respond/respond-webhook.service.js'
 import { getRespondConversationId, resetRespondConversationSession, setRespondConversationId } from '../src/respond/respond-session.service.js'
 
 describe('Respond incoming webhook parsing', () => {
@@ -67,18 +67,6 @@ describe('Respond workflow grace period', () => {
     ]
     assert.equal(latestIncomingTextBurst(messages, '103', 'Quintanilla'), 'Brenda\nQuintanilla')
     assert.equal(latestIncomingTextBurst(messages, '101', 'Brenda'), null)
-  })
-})
-
-describe('Claudia assigned-owner response policy', () => {
-  it('keeps responding when Denis Reis owns the contact on the configured English channel', () => {
-    assert.equal(claudiaAssignedOwnerMayRespond('claudia', CLAUDIA_ENGLISH_CHANNEL_ID, { id: CLAUDIA_OWNER_RESPOND_USER_ID }), true)
-  })
-
-  it('does not bypass assignment protection for another owner, channel, or personality', () => {
-    assert.equal(claudiaAssignedOwnerMayRespond('claudia', CLAUDIA_ENGLISH_CHANNEL_ID, { id: 123 }), false)
-    assert.equal(claudiaAssignedOwnerMayRespond('claudia', 999, { id: CLAUDIA_OWNER_RESPOND_USER_ID }), false)
-    assert.equal(claudiaAssignedOwnerMayRespond('maria', CLAUDIA_ENGLISH_CHANNEL_ID, { id: CLAUDIA_OWNER_RESPOND_USER_ID }), false)
   })
 })
 
