@@ -41,6 +41,7 @@ const languageDetectionSchema = z.object({
 })
 
 const ANALYSIS_INSTRUCTIONS = `Extract information explicitly present in the latest customer message.
+Use the recent conversation and last asked question to interpret short contextual answers. For example, if the bot just asked for a weight or weight goal, a bare number such as "200" is a weight in pounds, not a dollar amount or an answer about price.
 Return US states as uppercase two-letter postal codes. Do not infer a state from a city unless unambiguous.
 A weight goal is a desired weight, pounds to lose, or a general goal such as losing weight.
 Identify every question topic. Detect the language of the latest message. Return other for language-neutral replies such as a standalone proper name, US state or city, phone number, appointment option, or numeric time; these replies must not change the conversation language.
@@ -66,6 +67,12 @@ export function isLanguageNeutralMessage(message: string) {
   if (/^[+#()\d\s.,:/-]+(?:\s*(?:lb|lbs|kg|am|pm))?$/i.test(normalized)) return true
   if (/^(?:a|b|#?[12]|first|second|primero|segundo|primeiro|sim|s[ií]|yes|no|ok|okay)$/i.test(normalized)) return true
   return false
+}
+
+export function contextualWeightGoal(message: string, state: Pick<ConversationState, 'lastAskedQuestion'>) {
+  if (state.lastAskedQuestion !== 'weight_goal') return null
+  if (!/^\s*\d{2,3}(?:\.\d+)?\s*(?:lb|lbs|pounds?|libras?|kg|kgs|kilos?)?\s*$/iu.test(message)) return null
+  return `${message.trim()}${/[a-z]/iu.test(message) ? '' : ' lb'}`
 }
 
 export function explicitLanguageHint(message: string): 'en' | 'es' | 'pt' | null {
@@ -157,10 +164,11 @@ Latest customer message: ${message}`,
   const recognition = recognizeUSLocation(message)
   const locationAttempted = isLocationAttempt(message)
   const explicitLanguage = explicitLanguageHint(message)
+  const contextualGoal = contextualWeightGoal(message, state)
   return {
     ...response.output_parsed,
     detectedLanguage: isLanguageNeutralMessage(message) ? 'other' : explicitLanguage ?? response.output_parsed.detectedLanguage,
-    customerWeightGoal: isGreetingOnly(message) ? null : response.output_parsed.customerWeightGoal,
+    customerWeightGoal: isGreetingOnly(message) ? null : contextualGoal ?? response.output_parsed.customerWeightGoal,
     customerStateCode: recognition.stateCode,
     customerCity: recognition.city ?? null,
     appointmentPreference: response.output_parsed.appointmentPreference ?? explicitSchedulingPreference(message),

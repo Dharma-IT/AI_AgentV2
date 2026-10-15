@@ -31,6 +31,11 @@ export function customerRequestsSalesLink(message: string) {
 
 export function claudiaOffer(language: ConversationState['preferredLanguage'], salesUrl: string | null) {
   const link = salesUrl ? `\n\n${salesUrl}` : ''
+  const postPurchase = language === 'es'
+    ? 'Después de tu compra, un representante de Dharma te llamará, te explicará todo el proceso, te entregará las guías de nutrición y ejercicio y te acompañará durante el programa.'
+    : language === 'pt'
+      ? 'Depois da compra, um representante da Dharma ligará para você, explicará todo o processo, fornecerá os guias de nutrição e exercícios e acompanhará você durante o programa.'
+      : 'After your purchase, a Dharma customer representative will call you, explain the complete process, provide your nutrition and exercise guides, and take care of you throughout the program.'
   if (language === 'es') return `🌟 Así funciona nuestro Programa VIP Dharma:
 
 • 🤝 Atención 1:1 con nuestro equipo de soporte
@@ -42,6 +47,8 @@ export function claudiaOffer(language: ConversationState['preferredLanguage'], s
 • 🚚 Si recibes aprobación, tu pedido se envía en 3–5 días hábiles
 
 Semaglutida desde $199 y Tirzepatida desde $299. La aprobación médica es obligatoria.
+
+${postPurchase}
 
 ${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : ''}${link}`
   if (language === 'pt') return `🌟 Veja como funciona o nosso Programa VIP Dharma:
@@ -56,6 +63,8 @@ ${salesUrl ? '✨ Puedes dar el siguiente paso aquí:' : ''}${link}`
 
 Semaglutida a partir de US$ 199 e Tirzepatida a partir de US$ 299. A aprovação médica é obrigatória.
 
+${postPurchase}
+
 ${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : ''}${link}`
   return `🌟 This is how our VIP Dharma Program works:
 
@@ -68,6 +77,8 @@ ${salesUrl ? '✨ Você pode dar o próximo passo aqui:' : ''}${link}`
 • 🚚 If approved, your order ships within 3–5 business days
 
 Semaglutide starts at $199 and Tirzepatide starts at $299. Medical approval is required.
+
+${postPurchase}
 
 ${salesUrl ? '✨ You can take the next step here:' : ''}${link}`
 }
@@ -92,7 +103,7 @@ export async function generateClaudiaReply(
       store: false,
       instructions: `You are Claudia from Dharma Nutrition Clinic: an empathetic, energetic, highly conversational sales concierge. Reply in ${state.preferredLanguage === 'es' ? 'Spanish' : state.preferredLanguage === 'pt' ? 'Portuguese' : 'English'}.
 Answer only the customer's current question using structuredKnowledge and behavioralGuidance, applying complianceRules first. Be concise: normally one or two short paragraphs with 1 to 3 relevant emojis. Do not repeat the customer's goal, the full VIP program, prices, shipping details, pharmacy details, or facts already communicated unless the customer specifically asks about them. Be encouraging and persuasive without pressure, guarantees, or exaggerated claims.
-Never diagnose, prescribe, determine eligibility, promise results, or invent facts. If approved knowledge does not answer the question, say clinic staff must confirm it. Do not offer appointments, request a state, or mention internal systems. Never say that you cannot share links, cannot send a link, or that another app or person must provide a link. Do not include a purchase URL in your generated answer or repeat the complete VIP program pitch; the application appends the real configured link when appropriate. Do not ask for the weight goal when it is already present in knownWeightGoal.`,
+Never diagnose, prescribe, determine eligibility, promise results, or invent facts. If approved knowledge does not answer the question, say clinic staff must confirm it. Claudia's job is to answer the customer's questions, clearly explain what the treatment and program involve, and help the customer purchase through checkout when ready. Never offer or schedule an appointment, consultation, analysis call, or booking before purchase. Explain when relevant that after purchase a Dharma customer representative will call, explain the process, provide the nutrition and exercise guides, and take care of the customer throughout the program. Do not request a state or mention internal systems. Never say that you cannot share links, cannot send a link, or that another app or person must provide a link. Do not include a purchase URL in your generated answer or repeat the complete VIP program pitch; the application appends the real configured link when appropriate. Do not ask for the weight goal when it is already present in knownWeightGoal.`,
       input: JSON.stringify({
         customerMessage,
         knownWeightGoal: state.customerWeightGoal,
@@ -100,8 +111,10 @@ Never diagnose, prescribe, determine eligibility, promise results, or invent fac
         behavioralGuidance: knowledge.guidance.map(({ sourceType, content }) => ({ sourceType, content })),
         complianceRules: knowledge.compliance.map(({ content }) => content),
         approvedProgramFacts: {
-          oneToOneSupport: 'Ongoing personalized customer-support guidance during the program; do not describe it as a medical consultation unless retrieved knowledge explicitly says so.',
-          includedSupport: ['personalized support', 'medical supervision', 'nutritional guide', 'exercise guide'],
+          role: 'Claudia answers customer questions, clearly explains the treatment and program, and helps the customer purchase through the configured checkout link when ready. She never offers, schedules, or implies a consultation, analysis call, appointment, or booking before purchase.',
+          postPurchaseProcess: 'After the customer purchases, a Dharma customer representative will call them, explain the complete process, provide the nutrition and exercise guides, and take care of them throughout the program.',
+          oneToOneSupport: 'After purchase, a Dharma customer representative provides personalized support; do not describe this as a pre-purchase consultation or appointment.',
+          includedSupport: ['post-purchase personalized support', 'medical supervision', 'nutrition guide', 'exercise guide'],
           fulfillment: 'If medically approved, orders ship in 3-5 business days from a USA-based 503(a) pharmacy.',
           startingPrices: { semaglutide: '$199', tirzepatide: '$299' },
         },

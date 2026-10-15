@@ -4,6 +4,7 @@ import { InMemoryConversationRepository } from '../src/repositories/conversation
 import { analysis, ConversationService } from '../src/services/conversation.service.js'
 import { claudiaGreetingForLanguage, claudiaIntroductionForLanguage, claudiaOffer, claudiaQuestionTransition, customerRequestsSalesLink, generateClaudiaReply } from '../src/services/claudia.service.js'
 import type { KnowledgeContext } from '../src/knowledge/knowledge.types.js'
+import { contextualWeightGoal } from '../src/services/maria.service.js'
 
 const emptyKnowledge: KnowledgeContext = {
   requestId: 'test', language: 'en', structured: [], guidance: [], compliance: [],
@@ -52,6 +53,8 @@ test('Claudia sends the complete sales offer and URL once, then resends only on 
   assert.match(first.reply, /\$199/)
   assert.match(first.reply, /\$299/)
   assert.match(first.reply, /Medical approval/)
+  assert.match(first.reply, /After your purchase, a Dharma customer representative will call you/)
+  assert.match(first.reply, /take care of you throughout the program/)
   assert.match(first.reply, /https:\/\/example.com\/buy/)
   assert.equal(first.plan.includeResultsImage, true)
 
@@ -62,6 +65,12 @@ test('Claudia sends the complete sales offer and URL once, then resends only on 
   setAnalysis(analysis({ detectedLanguage: 'en' }))
   const link = await instance.processMessage(conversation.id, 'Can I get the purchase link?')
   assert.match(link.reply, /https:\/\/example.com\/buy/)
+})
+
+test('a bare number answers the active weight-goal question rather than pricing', () => {
+  assert.equal(contextualWeightGoal('200', { lastAskedQuestion: 'weight_goal' }), '200 lb')
+  assert.equal(contextualWeightGoal('200', { lastAskedQuestion: null }), null)
+  assert.equal(contextualWeightGoal('$200', { lastAskedQuestion: 'weight_goal' }), null)
 })
 
 test('Claudia frames patient examples safely before explaining the VIP program', async () => {
