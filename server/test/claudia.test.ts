@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { InMemoryConversationRepository } from '../src/repositories/conversation.repository.js'
 import { analysis, ConversationService } from '../src/services/conversation.service.js'
-import { claudiaGreetingForLanguage, claudiaIntroductionForLanguage, claudiaOffer, claudiaQuestionTransition, customerRequestsSalesLink, generateClaudiaReply } from '../src/services/claudia.service.js'
+import { claudiaGreetingForLanguage, claudiaIntroductionForLanguage, claudiaOffer, claudiaQuestionTransition, customerRequestsSalesLink, generateClaudiaReply, removeQuestions } from '../src/services/claudia.service.js'
 import type { KnowledgeContext } from '../src/knowledge/knowledge.types.js'
 import { contextualWeightGoal } from '../src/services/maria.service.js'
 
@@ -52,9 +52,9 @@ test('Claudia sends the complete sales offer and URL once, then resends only on 
   assert.match(first.reply, /503\(a\)/)
   assert.match(first.reply, /\$199/)
   assert.match(first.reply, /\$299/)
-  assert.match(first.reply, /Medical approval/)
-  assert.match(first.reply, /After your purchase, a Dharma customer representative will call you/)
-  assert.match(first.reply, /take care of you throughout the program/)
+  assert.match(first.reply, /medical approval/i)
+  assert.match(first.reply, /After purchase, a Dharma representative will call/)
+  assert.match(first.reply, /support you throughout the program/)
   assert.match(first.reply, /https:\/\/example.com\/buy/)
   assert.equal(first.plan.includeResultsImage, true)
 
@@ -81,9 +81,9 @@ test('Claudia frames patient examples safely before explaining the VIP program',
     includeOffer: true, includeLinkOnly: false, salesUrl: 'https://example.com/buy',
   })
   assert.match(reply, /reported losing 60\+ lbs/)
-  assert.match(reply, /Individual results vary/)
+  assert.match(reply, /individual results vary/i)
   assert.match(reply, /medical approval/i)
-  assert.match(reply, /how our VIP Dharma Program works/i)
+  assert.match(reply, /VIP Dharma Program includes/i)
 })
 
 test('Claudia identifies explicit sales-link requests', () => {
@@ -117,16 +117,51 @@ test('Claudia naturally re-offers the link after three follow-up questions', asy
   assert.equal(third.state.questionsSinceSalesLink, 0)
 })
 
-test('Claudia follow-ups end with an empathetic sales action', async () => {
+test('Claudia follow-ups after the offer use a polite statement without another action question', async () => {
   const { instance } = service()
   const state = instance.createConversation('en', 'claudia')
   state.customerWeightGoal = 'lose 20 pounds'
   const reply = await generateClaudiaReply('Okay', state, analysis({ detectedLanguage: 'en' }), emptyKnowledge, {
     includeOffer: false, includeLinkOnly: false, salesUrl: null,
   })
-  assert.match(reply, /💚✨/u)
-  assert.match(reply, /move forward with the program/i)
+  assert.match(reply, /I’m here to help when you’re ready/i)
+  assert.doesNotMatch(reply, /[?¿]/u)
   assert.doesNotMatch(reply, /main weight goal/i)
+})
+
+test('Claudia enforces at most one application-controlled question in every supported language', async () => {
+  const questionMarks = (value: string) => value.match(/\?/gu)?.length ?? 0
+  for (const language of ['en', 'es', 'pt'] as const) {
+    const { instance } = service()
+    const state = instance.createConversation(language, 'claudia')
+    const noGoal = await generateClaudiaReply(
+      'Tell me about it', state, analysis({ detectedLanguage: language }), emptyKnowledge,
+      { includeOffer: false, includeLinkOnly: false, salesUrl: null },
+    )
+    assert.equal(questionMarks(noGoal), 1)
+
+    state.customerWeightGoal = '20 lb'
+    state.salesOfferSent = true
+    const afterLink = await generateClaudiaReply(
+      'Okay', state, analysis({ detectedLanguage: language }), emptyKnowledge,
+      { includeOffer: false, includeLinkOnly: false, salesUrl: null },
+    )
+    assert.equal(questionMarks(afterLink), 0)
+  }
+})
+
+test('model-authored questions are removed before application copy is appended', () => {
+  assert.equal(removeQuestions('The program includes support. Would you like the link?'), 'The program includes support.')
+  assert.equal(removeQuestions('Incluye apoyo. ¿Quieres comprar? El envío tarda de 3 a 5 días.'), 'Incluye apoyo. El envío tarda de 3 a 5 días.')
+})
+
+test('the complete sales offer is concise and contains no question after its purchase link', () => {
+  for (const language of ['en', 'es', 'pt'] as const) {
+    const offer = claudiaOffer(language, 'https://example.com/buy')
+    assert.ok(offer.length < 700)
+    assert.doesNotMatch(offer, /[?¿]/u)
+    assert.match(offer, /https:\/\/example\.com\/buy/)
+  }
 })
 
 test('Claudia restores an offered conversation from Respond history after memory loss', async () => {
