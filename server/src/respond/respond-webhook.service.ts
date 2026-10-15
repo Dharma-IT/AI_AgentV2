@@ -14,6 +14,9 @@ type Json = Record<string, unknown>
 
 export const RESPOND_WORKFLOW_GRACE_PERIOD_MS = 20_000
 export const RESPOND_FOLLOW_UP_GRACE_PERIOD_MS = 3_000
+export const CLAUDIA_ENGLISH_CHANNEL_ID = 564158
+export const CLAUDIA_OWNER_RESPOND_USER_ID = 427304
+export const CLAUDIA_OWNER_NAME = 'Denis Reis'
 
 type Wait = (milliseconds: number) => Promise<void>
 
@@ -53,6 +56,17 @@ export function latestIncomingTextBurst(messages: RespondMessage[], incomingMess
 function object(value: unknown): Json | null { return value && typeof value === 'object' && !Array.isArray(value) ? value as Json : null }
 function first(...values: unknown[]) { return values.find((value) => value !== undefined && value !== null) }
 function numeric(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null }
+
+export function claudiaAssignedOwnerMayRespond(
+  personality: 'maria' | 'claudia',
+  channelId: number,
+  assignee: unknown,
+) {
+  const assigned = object(assignee)
+  return personality === 'claudia'
+    && channelId === CLAUDIA_ENGLISH_CHANNEL_ID
+    && numeric(assigned?.id) === CLAUDIA_OWNER_RESPOND_USER_ID
+}
 
 function stringLeaves(value: unknown): string[] {
   if (typeof value === 'string') return [value]
@@ -145,15 +159,16 @@ export async function processIncomingWebhook(
   const customerText = latestIncomingTextBurst(recentMessages.items, event.messageId, event.text)
   if (customerText === null) return { action: 'superseded_during_grace_period' }
   const isUnassigned = liveContact.assignee === null || liveContact.assignee === undefined
+  const isAssignedToClaudiaOwner = claudiaAssignedOwnerMayRespond(personality, event.channelId, liveContact.assignee)
   if (await restoreLockedOwner(event.contactId, isUnassigned, client)) return { action: 'owner_restored' }
-  if (!isUnassigned) return { action: 'human_assigned' }
+  if (!isUnassigned && !isAssignedToClaudiaOwner) return { action: 'human_assigned' }
 
   if (unsupported(event.messageType, event.hasTransferableMedia)) {
     await transferToFrontDesk(event.contactId, event.contactName, client)
     return { action: 'front_desk' }
   }
   const control = await getContactAutomation(event.contactId)
-  if (!mariaMayRespond(control, true)) return { action: 'locked' }
+  if (!mariaMayRespond(control, isUnassigned || isAssignedToClaudiaOwner)) return { action: 'locked' }
 
   if (!control?.maria_greeting_sent_at) {
     const detectedLanguage = await detectCustomerLanguage(customerText)
@@ -180,6 +195,9 @@ export async function processIncomingWebhook(
       const transition = result.plan.answerTopics.length ? `${claudiaQuestionTransition(language)}\n\n` : ''
       if (result.plan.includeResultsImage) await sendMediaWithoutBlockingText(client, identifier, welcomeImage)
       await client.sendTextMessage(identifier, `${claudiaIntroductionForLanguage(language)}\n\n${transition}${result.reply}`)
+      if (event.channelId === CLAUDIA_ENGLISH_CHANNEL_ID) {
+        await client.assignConversation(identifier, CLAUDIA_OWNER_RESPOND_USER_ID)
+      }
       if (result.plan.transferToFrontDesk) {
         await transferToFrontDesk(event.contactId, event.contactName, client)
         resetRespondConversationSession(event.contactId)
