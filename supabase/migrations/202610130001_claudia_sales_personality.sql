@@ -20,7 +20,7 @@ create table public.bot_settings (
 );
 
 insert into public.bot_settings (personality, sales_url)
-values ('claudia', 'https://dharmanutritionclinic.store/products/inyecciones-glp-1-personalizadas-para-perder-peso');
+values ('claudia', 'https://dharmanutritionclinic.store/pages/landing-glp1-v1');
 
 insert into public.conversation_knowledge
   (title, description, category, content, language_code, keywords, priority, version, status)
