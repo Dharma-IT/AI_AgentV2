@@ -7,10 +7,18 @@ import {
 
 test('only Sales and Customer Service users are booking eligible', () => {
   const eligible = INTEGRATION_USER_MAPPINGS.filter((mapping) => mapping.bookingEligible)
-  assert.equal(eligible.length, 8)
+  assert.equal(eligible.length, 9)
   assert.ok(eligible.every((mapping) => mapping.team !== 'front_desk'))
   assert.ok(INTEGRATION_USER_MAPPINGS.filter((mapping) => mapping.team === 'front_desk')
     .every((mapping) => !mapping.bookingEligible))
+})
+
+test('Helen Gutierrez resolves as a sales seller across all integrations', () => {
+  const helen = findEligibleUserByHubSpotUserId(101586321)
+  assert.equal(helen?.team, 'sales')
+  assert.equal(helen?.respondUserId, 76251601)
+  assert.equal(helen?.aircallUserId, 2102686)
+  assert.equal(helen?.hubspotEmail, 'hgutierrez@dharmanutritionclinic.com')
 })
 
 test('Alice and Aline resolve through one explicit cross-system identity', () => {

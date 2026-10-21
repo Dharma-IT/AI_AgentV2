@@ -7,6 +7,7 @@ const REQUIRED_DURATION_MS = 20 * 60 * 1000
 const meetingPool = [
   { hubspotUserId: 99223316, slug: 'alejandra-oyala' },
   { hubspotUserId: 100293115, slug: 'cvargas37' },
+  { hubspotUserId: 101586321, slug: 'helen-gutierrez' },
   { hubspotUserId: 77394932, slug: 'arles-martinez' },
   { hubspotUserId: 79527842, slug: 'brayam-zuluaga' },
   { hubspotUserId: 77394941, slug: 'edmilson-morales' },
