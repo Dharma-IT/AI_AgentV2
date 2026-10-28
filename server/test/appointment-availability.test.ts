@@ -18,12 +18,12 @@ test('availability offers one morning and one afternoon verified 20-minute slot 
     'arles-martinez': ['2026-10-06T14:20:00.000Z'],
     'brayam-zuluaga': ['2026-10-06T15:00:00.000Z'],
     'edmilson-morales': ['2026-10-06T17:20:00.000Z'],
-    'alejandra-oyala': ['2026-10-06T15:00:00.000Z'],
+    'leonardo-lozano': ['2026-10-06T15:00:00.000Z'],
   }
   const client = {
     async getAvailability(slug: string): Promise<HubSpotAvailability> {
       const starts = startsBySlug[slug] ?? []
-      if (slug === 'alejandra-oyala') return { linkAvailability: { linkAvailabilityByDuration: {
+      if (slug === 'leonardo-lozano') return { linkAvailability: { linkAvailabilityByDuration: {
         '1800000': { meetingDurationMillis: 1_800_000, availabilities: starts.map((start) => ({ startMillisUtc: millis(start), endMillisUtc: millis(start) + 1_800_000 })) },
       } } }
       return { linkAvailability: { linkAvailabilityByDuration: {

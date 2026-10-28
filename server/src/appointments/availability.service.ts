@@ -5,7 +5,7 @@ import { customerTimezoneLabel, resolveCustomerTimezone } from './timezone.js'
 
 const REQUIRED_DURATION_MS = 20 * 60 * 1000
 const meetingPool = [
-  { hubspotUserId: 99223316, slug: 'alejandra-oyala' },
+  { hubspotUserId: 102132581, slug: 'leonardo-lozano' },
   { hubspotUserId: 100293115, slug: 'cvargas37' },
   { hubspotUserId: 101586321, slug: 'helen-gutierrez' },
   { hubspotUserId: 77394932, slug: 'arles-martinez' },
